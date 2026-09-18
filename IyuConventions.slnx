@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Iyu.Conventions.Testing/Iyu.Conventions.Testing.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Fixtures.Clean/Iyu.Conventions.Testing.Fixtures.Clean.csproj" />
+    <Project Path="tests/Fixtures.Defective/Iyu.Conventions.Testing.Fixtures.Defective.csproj" />
+    <Project Path="tests/Iyu.Conventions.Testing.Tests/Iyu.Conventions.Testing.Tests.csproj" />
+  </Folder>
+</Solution>

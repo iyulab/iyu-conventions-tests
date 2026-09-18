@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Iyu.Conventions.Testing</PackageId>
+    <Description>Convention checks for .NET libraries, run from a repository's own test project: finds public options that nothing in the library reads. No dependency beyond the runtime, so it works with any test framework.</Description>
+    <PackageTags>testing;conventions;options;reflection;il</PackageTags>
+  </PropertyGroup>
+
+</Project>
