@@ -1,0 +1,97 @@
+name: Publish to NuGet
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Directory.Build.props'
+  workflow_dispatch:   # manual trigger (e.g. first publish without a version bump)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      id-token: write   # OIDC token issuance for NuGet Trusted Publishing
+      contents: write   # push the version tag
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Extract version from Directory.Build.props
+      id: version
+      run: |
+        VERSION=$(grep -oP '<Version>\K[^<]+' Directory.Build.props)
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "Detected version: $VERSION"
+
+    - name: Check if tag already exists
+      id: check_tag
+      run: |
+        if git ls-remote --tags origin "v${{ steps.version.outputs.version }}" | grep -q .; then
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+          echo "Tag v${{ steps.version.outputs.version }} already exists — skipping publish"
+        else
+          echo "exists=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Setup .NET 10
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore
+      if: steps.check_tag.outputs.exists == 'false'
+      run: dotnet restore IyuConventions.slnx
+
+    - name: Build
+      if: steps.check_tag.outputs.exists == 'false'
+      run: dotnet build IyuConventions.slnx --no-restore --configuration Release
+
+    - name: Test
+      if: steps.check_tag.outputs.exists == 'false'
+      # --hangdump/--hangdump-timeout is Microsoft.Testing.Platform's hang guard.
+      run: dotnet test --solution IyuConventions.slnx --no-build --configuration Release --verbosity normal --hangdump --hangdump-timeout 5m
+
+    # Pack the solution, then check every packable src project produced its package: a package that is
+    # never produced cannot fail to push, so the gap would stay invisible.
+    - name: Pack
+      if: steps.check_tag.outputs.exists == 'false'
+      run: dotnet pack IyuConventions.slnx --no-build --configuration Release --output ./nupkg
+
+    - name: Verify all packable projects were produced
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        version="${{ steps.version.outputs.version }}"
+        missing=0
+        # Read PackageId from the csproj rather than assuming it matches the file name.
+        for csproj in $(grep -oP '(?<=Path=")src/[^"]+\.csproj' IyuConventions.slnx); do
+          id=$(grep -oP '(?<=<PackageId>)[^<]+' "$csproj")
+          if [ ! -f "./nupkg/${id}.${version}.nupkg" ]; then
+            echo "::error::${id}.${version}.nupkg was not produced"
+            missing=1
+          fi
+        done
+        [ "$missing" -eq 0 ]
+
+    - name: NuGet login (OIDC → temporary API key)
+      if: steps.check_tag.outputs.exists == 'false'
+      id: nuget_login
+      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841  # v1.2.0
+      with:
+        user: ${{ secrets.NUGET_USER }}
+
+    - name: Push to NuGet
+      if: steps.check_tag.outputs.exists == 'false'
+      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+    - name: Create git tag
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        git tag "v${{ steps.version.outputs.version }}"
+        git push origin "v${{ steps.version.outputs.version }}"
