@@ -3,6 +3,14 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [0.2.0] - Unreleased
+
+### Changed
+- **`OptionsReachability` no longer counts a copy written outside the options type as a read.** A getter whose value goes straight into the same property of another instance of the same options type (`new Options { X = source.X }` in a helper on some other class) carries the option; it does not honour it. Before, such a helper made every option it copied look read, and an option nothing else consumed passed the roster. A roster may report options as unread after this update that were never honoured.
+
+### Fixed
+- **An option read through a computed property the library reads is counted as read.** A computed property on the options type (`EffectiveGroup => Group ?? VaultId`) is itself a getter, and reading it from outside did not carry over to the options it reads inside. Such options were reported unread unless something else, often a copy, happened to read them.
+
 ## [0.1.0]
 
 ### Added

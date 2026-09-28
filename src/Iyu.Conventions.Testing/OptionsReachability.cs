@@ -15,7 +15,9 @@ namespace Iyu.Conventions.Testing;
 /// Reads inside an options type count only through a member the library calls from outside it: a
 /// <c>Validate()</c> or computed property the library consults is how such an option is honoured. Reads
 /// made to copy the options into another instance (a clone, a <c>With…</c> derivation, the compiler's
-/// record copy method) are not uses and never count.
+/// record copy method) are not uses and never count. Neither is a copy written anywhere else: a getter whose value
+/// goes straight into the same property of another instance of the same options type
+/// (<c>new Options { X = source.X }</c> in a helper outside the type) carries the option, it does not honour it.
 /// </para>
 /// <para>
 /// Two limits, both deliberate. Reading is necessary, not sufficient: an option can be read and still have
@@ -83,11 +85,16 @@ public static class OptionsReachability
                 IEnumerable<MethodBase> bodies = type.GetMethods(all).Cast<MethodBase>().Concat(type.GetConstructors(all));
                 foreach (var method in bodies)
                 {
-                    foreach (var target in IlInspection.Calls(method, type.Module))
+                    foreach (var (target, copied) in IlInspection.CallsWithCopies(method, type.Module))
                     {
                         var targetKey = (target.Module, target.MetadataToken);
                         if (getters.TryGetValue(targetKey, out var option))
                         {
+                            if (copied)
+                            {
+                                continue;
+                            }
+
                             var key = $"{option.Type.FullName}.{option.Name}";
                             if (owner == option.Type)
                             {
@@ -106,6 +113,9 @@ public static class OptionsReachability
                             }
 
                             read.Add(key);
+                            // A computed property is itself a getter on the options type; reading it from outside is
+                            // also what honours the options it reads inside.
+                            calledFromOutside.Add(targetKey);
                             if (type.Assembly != option.Type.Assembly)
                             {
                                 crossAssembly.Add(key);

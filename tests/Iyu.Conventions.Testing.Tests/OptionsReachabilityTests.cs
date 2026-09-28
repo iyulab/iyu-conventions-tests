@@ -22,8 +22,9 @@ public class OptionsReachabilityTests
         var report = OptionsReachability.Scan([Defective], Options);
 
         Assert.Equal(
-            [typeof(GadgetOptions), typeof(ThingOptions), typeof(WidgetOptions)],
+            [typeof(GadgetOptions), typeof(HolderOptions), typeof(ThingOptions), typeof(WidgetOptions)],
             report.OptionTypes);
+        Assert.Equal(["Ratio"], report.Unread[typeof(HolderOptions).FullName!]);
         Assert.Equal(["Unused"], report.Unread[typeof(WidgetOptions).FullName!]);
         Assert.Equal(["Label"], report.Unread[typeof(GadgetOptions).FullName!]);
         Assert.Equal(["Extra"], report.Unread[typeof(ThingOptions).FullName!]);
@@ -46,6 +47,27 @@ public class OptionsReachabilityTests
         var report = OptionsReachability.Scan([Defective], Options);
 
         Assert.DoesNotContain($"{typeof(ThingOptions).FullName}.{nameof(ThingOptions.Extra)}", report.Read);
+    }
+
+    [Fact]
+    public void CopyWrittenOutsideTheOptionsType_ReadsDoNotCount()
+    {
+        // HolderCopies.Clamped carries Ratio into a new HolderOptions and nothing else reads it. Kept is read there too,
+        // but through Math.Min, which uses it; Mode goes into another type's property, which uses it.
+        var report = OptionsReachability.Scan([Defective], Options);
+
+        Assert.DoesNotContain($"{typeof(HolderOptions).FullName}.{nameof(HolderOptions.Ratio)}", report.Read);
+        Assert.Contains($"{typeof(HolderOptions).FullName}.{nameof(HolderOptions.Kept)}", report.Read);
+        Assert.Contains($"{typeof(HolderOptions).FullName}.{nameof(HolderOptions.Mode)}", report.Read);
+    }
+
+    [Fact]
+    public void AnOptionReadThroughAComputedPropertyTheLibraryReads_IsRead()
+    {
+        // Group is read only inside EffectiveGroup; the library reads EffectiveGroup, so Group is honoured.
+        var report = OptionsReachability.Scan([Defective], Options);
+
+        Assert.Contains($"{typeof(HolderOptions).FullName}.{nameof(HolderOptions.Group)}", report.Read);
     }
 
     [Fact]
@@ -89,6 +111,7 @@ public class OptionsReachabilityTests
             [typeof(WidgetOptions).FullName!] = ["Unused"],
             [typeof(GadgetOptions).FullName!] = ["Label"],
             [typeof(ThingOptions).FullName!] = ["Extra"],
+            [typeof(HolderOptions).FullName!] = ["Ratio"],
         });
     }
 

@@ -73,6 +73,53 @@ public class ThingOptions
     public ThingOptions WithName(string name) => new() { Limit = Limit, Name = name, Extra = Extra };
 }
 
+/// <summary>
+/// <c>Kept</c> is read by <see cref="Holder"/>. <c>Ratio</c> is read only by <see cref="HolderCopies.Clamped"/>, a helper
+/// outside the options type that copies them into a new instance, so it is not read. <c>Mode</c> goes into a property of
+/// another type, which is using it.
+/// </summary>
+public class HolderOptions
+{
+    public float Ratio { get; set; }
+
+    /// <summary>Read only through <see cref="EffectiveGroup"/>, which the library reads, so it is read.</summary>
+    public string? Group { get; set; }
+
+    public string EffectiveGroup => string.IsNullOrEmpty(Group) ? "default" : Group;
+
+    public int Kept { get; set; }
+
+    public string Mode { get; set; } = string.Empty;
+}
+
+public static class HolderCopies
+{
+    public static HolderOptions Clamped(HolderOptions source, int limit)
+        => new() { Ratio = source.Ratio, Kept = Math.Min(source.Kept, limit), Mode = source.Mode };
+}
+
+public sealed class Holder
+{
+    public Holder(HolderOptions options)
+    {
+        var clamped = HolderCopies.Clamped(options, 10);
+        Size = clamped.Kept;
+        Mode = new ModeSetting { Mode = options.Mode };
+        GroupName = options.EffectiveGroup;
+    }
+
+    public string GroupName { get; }
+
+    public int Size { get; }
+
+    public ModeSetting Mode { get; }
+}
+
+public sealed class ModeSetting
+{
+    public string Mode { get; set; } = string.Empty;
+}
+
 public sealed class Thing
 {
     public Thing(ThingOptions options)

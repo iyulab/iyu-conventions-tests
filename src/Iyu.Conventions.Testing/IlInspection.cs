@@ -32,7 +32,27 @@ internal static class IlInspection
     /// something else, or to nothing; callers match exact methods only.
     /// </summary>
     public static IEnumerable<MethodBase> Calls(MethodBase method, Module module)
-        => Targets(method, module, Call, CallVirt);
+        => Targets(method, module, Call, CallVirt).Select(site => site.Target);
+
+    /// <summary>
+    /// The calls of <see cref="Calls"/>, each paired with whether its result goes straight into the same-named
+    /// property's setter on the same type (<c>callvirt get_X</c> immediately followed by <c>callvirt set_X</c>), which
+    /// is how a copy of an options object is written: <c>new Options { X = source.X }</c>. Such a getter call carries
+    /// the value into another instance; it does not consume it.
+    /// </summary>
+    public static IEnumerable<(MethodBase Target, bool CopiedIntoSameProperty)> CallsWithCopies(MethodBase method, Module module)
+    {
+        var sites = Targets(method, module, Call, CallVirt).ToList();
+        var byOffset = sites.ToDictionary(site => site.Offset, site => site.Target);
+        foreach (var (offset, target) in sites)
+        {
+            var copied = target.Name.StartsWith("get_", StringComparison.Ordinal)
+                && byOffset.TryGetValue(offset + 5, out var next)
+                && next.DeclaringType == target.DeclaringType
+                && next.Name == "set_" + target.Name[4..];
+            yield return (target, copied);
+        }
+    }
 
     /// <summary>Whether <paramref name="type"/> is <paramref name="container"/> or nested inside it.</summary>
     public static bool IsWithin(Type type, Type container)
@@ -72,7 +92,7 @@ internal static class IlInspection
         }
 
         var declaring = method.DeclaringType!;
-        foreach (var created in Targets(method, method.Module, NewObj))
+        foreach (var (_, created) in Targets(method, method.Module, NewObj))
         {
             if (created is ConstructorInfo && created.DeclaringType == declaring)
             {
@@ -92,7 +112,7 @@ internal static class IlInspection
         return false;
     }
 
-    private static IEnumerable<MethodBase> Targets(MethodBase method, Module module, params byte[] opcodes)
+    private static IEnumerable<(int Offset, MethodBase Target)> Targets(MethodBase method, Module module, params byte[] opcodes)
     {
         byte[]? il;
         try
@@ -134,7 +154,7 @@ internal static class IlInspection
 
             if (target is not null)
             {
-                yield return target;
+                yield return (i, target);
             }
         }
     }
