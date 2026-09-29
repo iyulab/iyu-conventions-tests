@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-09-29
 
 ### Changed
 - **`OptionsReachability` no longer counts validation as a read.** Reads in the options type's own `Validate…` methods
