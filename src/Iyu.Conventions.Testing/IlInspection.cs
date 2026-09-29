@@ -79,6 +79,36 @@ internal static class IlInspection
     /// is a real read; a fluent <c>Validate()</c> returning <c>this</c> has the same signature as a copy but
     /// creates nothing, so its reads count.
     /// </remarks>
+    /// <summary>
+    /// Validation <em>of</em> options, as opposed to a feature whose job is validating something else: a <c>Validate…</c>
+    /// method declared by the options type itself (<paramref name="optionsType"/>, the type the method sits in), or any
+    /// method of a type implementing <c>IValidateOptions&lt;T&gt;</c>. A guardrail's <c>ValidateInputAsync</c> reading its own
+    /// options is the feature and still counts.
+    /// </summary>
+    public static bool IsOptionsValidation(MethodBase method, Type? optionsType)
+    {
+        var declaring = method.DeclaringType;
+        if (declaring is null)
+        {
+            return false;
+        }
+
+        if (declaring.GetInterfaces().Any(i => i.IsGenericType
+                && i.GetGenericTypeDefinition().FullName == "Microsoft.Extensions.Options.IValidateOptions`1"))
+        {
+            return true;
+        }
+
+        if (optionsType is null || !IsWithin(declaring, optionsType))
+        {
+            return false;
+        }
+
+        var name = method.Name;
+        var dot = name.LastIndexOf('.');   // explicit interface implementation: "System.….IValidatableObject.Validate"
+        return (dot >= 0 ? name[(dot + 1)..] : name).StartsWith("Validate", StringComparison.Ordinal);
+    }
+
     public static bool IsCopy(MethodBase method)
     {
         if (method.Name == "<Clone>$")

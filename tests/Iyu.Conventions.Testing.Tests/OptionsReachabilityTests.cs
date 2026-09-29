@@ -27,17 +27,35 @@ public class OptionsReachabilityTests
         Assert.Equal(["Ratio"], report.Unread[typeof(HolderOptions).FullName!]);
         Assert.Equal(["Unused"], report.Unread[typeof(WidgetOptions).FullName!]);
         Assert.Equal(["Label"], report.Unread[typeof(GadgetOptions).FullName!]);
-        Assert.Equal(["Extra"], report.Unread[typeof(ThingOptions).FullName!]);
+        Assert.Equal(["Extra", "Limit"], report.Unread[typeof(ThingOptions).FullName!]);
     }
 
     [Fact]
-    public void FluentValidateReturningThis_CountsItsReads()
+    public void FluentMethodReturningThis_CountsItsReads()
     {
-        // Same signature as a copy (returns its own type), but it creates nothing: the option it checks is
+        // Same signature as a copy (returns its own type), but it creates nothing: the option it uses is
         // honoured, so it is read.
         var report = OptionsReachability.Scan([Defective], Options);
 
-        Assert.Contains($"{typeof(ThingOptions).FullName}.{nameof(ThingOptions.Limit)}", report.Read);
+        Assert.Contains($"{typeof(ThingOptions).FullName}.{nameof(ThingOptions.Budget)}", report.Read);
+    }
+
+    [Fact]
+    public void TheOptionsTypesOwnValidate_ReadsDoNotCount()
+    {
+        // Limit is range-checked in Validate() and read by nothing else: a value nobody uses passed every roster.
+        var report = OptionsReachability.Scan([Defective], Options);
+
+        Assert.DoesNotContain($"{typeof(ThingOptions).FullName}.{nameof(ThingOptions.Limit)}", report.Read);
+    }
+
+    [Fact]
+    public void AnIValidateOptionsValidator_ReadsDoNotCount()
+    {
+        // WidgetOptionsValidator reads Unused from outside the options type — still validation, not use.
+        var report = OptionsReachability.Scan([Defective], Options);
+
+        Assert.DoesNotContain($"{typeof(WidgetOptions).FullName}.{nameof(WidgetOptions.Unused)}", report.Read);
     }
 
     [Fact]
@@ -110,7 +128,7 @@ public class OptionsReachabilityTests
         {
             [typeof(WidgetOptions).FullName!] = ["Unused"],
             [typeof(GadgetOptions).FullName!] = ["Label"],
-            [typeof(ThingOptions).FullName!] = ["Extra"],
+            [typeof(ThingOptions).FullName!] = ["Extra", "Limit"],
             [typeof(HolderOptions).FullName!] = ["Ratio"],
         });
     }

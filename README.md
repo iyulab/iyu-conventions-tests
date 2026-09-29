@@ -42,7 +42,8 @@ The roster fails in both directions. A newly added option that nothing reads fai
 ## What counts as a read
 
 - A call to the option property's getter from any type outside the options type.
-- A read inside the options type, in a member the library calls from outside it (a `Validate()`, a computed property). A fluent method that returns `this` counts.
+- A read inside the options type, in a member the library calls from outside it (a computed property, a fluent method that returns `this`).
+- **Not** validation (0.3.0+): a read in the options type's own `Validate…` methods, or in an `IValidateOptions<T>` validator. A range check does not make an option take effect. A `Validate…` method on another type (a guardrail's `ValidateInputAsync` reading its own options) is a use.
 - **Not** a read made only to copy the options into a new instance: the compiler's record copy method, or any method returning the options type whose body creates one (a constructor call, a record copy, `MemberwiseClone`).
 
 Reading is necessary, not sufficient. An option can be read and still have no effect, and that has no static signal. A property is attributed to the type that declares it.

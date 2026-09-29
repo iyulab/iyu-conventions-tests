@@ -12,8 +12,10 @@ namespace Iyu.Conventions.Testing;
 /// property's getter made from outside the options type. A property with no such call is unread.
 /// </para>
 /// <para>
-/// Reads inside an options type count only through a member the library calls from outside it: a
-/// <c>Validate()</c> or computed property the library consults is how such an option is honoured. Reads
+/// Reads inside an options type count only through a member the library calls from outside it: a computed
+/// property or fluent method the library consults is how such an option is honoured. Validation is not: reads in the
+/// options type's own <c>Validate…</c> methods and in an <c>IValidateOptions&lt;T&gt;</c> validator never count — a
+/// range check does not make an option take effect (0.3.0). Reads
 /// made to copy the options into another instance (a clone, a <c>With…</c> derivation, the compiler's
 /// record copy method) are not uses and never count. Neither is a copy written anywhere else: a getter whose value
 /// goes straight into the same property of another instance of the same options type
@@ -85,6 +87,13 @@ public static class OptionsReachability
                 IEnumerable<MethodBase> bodies = type.GetMethods(all).Cast<MethodBase>().Concat(type.GetConstructors(all));
                 foreach (var method in bodies)
                 {
+                    // An options type's own validation checks an option's value; it does not make the option take effect.
+                    // Counting its reads let an option that nothing but Validate() looked at pass as honoured.
+                    if (IlInspection.IsOptionsValidation(method, owner))
+                    {
+                        continue;
+                    }
+
                     foreach (var (target, copied) in IlInspection.CallsWithCopies(method, type.Module))
                     {
                         var targetKey = (target.Module, target.MetadataToken);

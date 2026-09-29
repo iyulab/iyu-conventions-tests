@@ -3,6 +3,16 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [0.3.0] - Unreleased
+
+### Changed
+- **`OptionsReachability` no longer counts validation as a read.** Reads in the options type's own `Validate…` methods
+  (a hand-written `Validate()`, `IValidatableObject.Validate`, and the helpers it is split into) and in any
+  `IValidateOptions<T>` validator do not count. A range check does not make an option take effect, and an option
+  nothing but `Validate()` looked at used to pass the roster while having no effect. A `Validate…` method on another
+  type (a guardrail's `ValidateInputAsync` reading its own options) is the feature, and still counts. A roster may
+  report options as unread after this update that were only ever validated.
+
 ## [0.2.0] - 2026-09-28
 
 ### Changed

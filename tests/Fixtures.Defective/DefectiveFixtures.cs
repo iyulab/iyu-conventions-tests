@@ -11,6 +11,17 @@ public class WidgetOptions
     public int Unused { get; set; }
 }
 
+/// <summary>
+/// An <c>IValidateOptions&lt;T&gt;</c> validator reads <c>Unused</c>: validating an option is not using it, so it stays unread.
+/// </summary>
+public sealed class WidgetOptionsValidator : Microsoft.Extensions.Options.IValidateOptions<WidgetOptions>
+{
+    public Microsoft.Extensions.Options.ValidateOptionsResult Validate(string? name, WidgetOptions options)
+        => options.Unused < 0
+            ? Microsoft.Extensions.Options.ValidateOptionsResult.Fail("Unused must not be negative.")
+            : Microsoft.Extensions.Options.ValidateOptionsResult.Success;
+}
+
 public sealed class Widget
 {
     public Widget(WidgetOptions options)
@@ -48,13 +59,18 @@ public sealed class Gadget
 }
 
 /// <summary>
-/// <c>Limit</c> is read only inside <see cref="Validate"/>, a fluent method returning <c>this</c> that the
-/// library calls — so it is read. <c>Extra</c> is read only by <see cref="WithName"/>, which exists to copy
-/// the options into a new instance — so it is not. <c>Name</c> is read by the library directly.
+/// <c>Limit</c> is read only inside <see cref="Validate"/>: checking a value is not using it, so it is unread.
+/// <c>Budget</c> is read only inside <see cref="Clamped"/>, a fluent method returning <c>this</c> that the library
+/// calls — not a copy, so it is read. <c>Extra</c> is read only by <see cref="WithName"/>, which exists to copy the
+/// options into a new instance — so it is not. <c>Name</c> is read by the library directly.
 /// </summary>
 public class ThingOptions
 {
     public int Limit { get; set; }
+
+    public int Budget { get; set; }
+
+    public int Effective { get; private set; }
 
     public string Name { get; set; } = string.Empty;
 
@@ -67,6 +83,12 @@ public class ThingOptions
             throw new InvalidOperationException("Limit must not be negative.");
         }
 
+        return this;
+    }
+
+    public ThingOptions Clamped()
+    {
+        Effective = Math.Max(0, Budget);
         return this;
     }
 
@@ -124,9 +146,12 @@ public sealed class Thing
 {
     public Thing(ThingOptions options)
     {
-        var valid = options.Validate();
+        var valid = options.Validate().Clamped();
         Title = valid.WithName("renamed").Name;
+        Effective = valid.Effective;
     }
 
     public string Title { get; }
+
+    public int Effective { get; }
 }

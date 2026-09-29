@@ -27,9 +27,12 @@ public sealed class CleanService
     {
         var valid = options.Validate();
         Budget = valid.Timeout * 2;
+        Attempts = valid.Retries + 1;
     }
 
     public TimeSpan Budget { get; }
+
+    public int Attempts { get; }
 }
 
 /// <summary>
