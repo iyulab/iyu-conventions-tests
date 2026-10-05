@@ -17,6 +17,10 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 - `PublicApiReport` for both: `Findings` (`Namespace.Type.Method(ParameterType, …)`), `MembersRead`, `ShouldMatchRoster(known)`
   (fails in both directions) and `ShouldBeClean()`.
 
+### Changed
+- **The package now carries the LICENSE text**, so a project that redistributes it can ship the MIT notice from the
+  package itself.
+
 ## [0.3.0] - 2026-09-29
 
 ### Changed
