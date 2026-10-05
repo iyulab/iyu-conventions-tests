@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2026-10-05
 
 ### Added
 - **`AsyncCancellation.Scan(assemblies)`: public async methods a caller cannot cancel.** Reports each public or protected
