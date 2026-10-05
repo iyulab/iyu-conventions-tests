@@ -2,10 +2,12 @@
 
 Convention checks for .NET libraries, run from a repository's own test project.
 
-Two checks today:
+Four checks today:
 
 - **Options reachability** finds public options that nothing in the library reads.
 - **Operational language** finds log and exception messages that break a language rule.
+- **Async cancellation** finds public async methods that take no `CancellationToken`.
+- **Result returns** finds public methods that report failure through a success flag and an error instead of an exception.
 
 The first finds **public options that nothing in the library reads**. An option nothing reads is a promise the library does not keep: a caller sets it, and nothing changes and nothing is reported. No build, test or review notices it, because nothing fails.
 
@@ -78,6 +80,29 @@ public void OperationalTextIsAscii()
 - It does not read documentation comments, or string literals that never reach an exception (user-facing text).
 
 The rules are plain predicates. `ContainsHangul` and `NonAscii` are built in; pass your own for anything else.
+
+## Public API: cancellation and result returns
+
+Two rules on the public surface (public and protected methods of exported types), read by reflection:
+
+```csharp
+// Methods the repository accepts today. Shrink these lists; never grow them silently.
+private static readonly string[] KnownUncancellable = ["MyLibrary.Store.FlushAsync()"];
+private static readonly string[] KnownResultReturns = [];
+
+[Fact]
+public void PublicAsyncMethods_TakeACancellationToken() =>
+    AsyncCancellation.Scan(Libraries).ShouldMatchRoster(KnownUncancellable);
+
+[Fact]
+public void PublicMethods_DoNotReturnResultObjects() =>
+    ResultReturns.Scan(Libraries).ShouldMatchRoster(KnownResultReturns);
+```
+
+- **`AsyncCancellation`** reports a method returning `Task`, `ValueTask`, their generic forms or `IAsyncEnumerable<T>` that has no `CancellationToken` parameter.
+- **`ResultReturns`** reports a method returning, directly or through `Task<T>`/`ValueTask<T>`, a type with a public `bool` named `IsSuccess`, `Success`, `Succeeded` or `IsSuccessful` and a public property named `Error`, `ErrorMessage`, `Errors` or `Exception`. Per-item outcomes inside a collection (a batch) are not reported, nor are the result type's own factories.
+- Each signature is reported once, where it is declared: an override or an interface implementation follows its declaration. A signature the library does not own (an override of a framework base, an implementation of an outside interface such as `IAsyncDisposable.DisposeAsync`) is not reported. Compiler-generated methods, property accessors and delegate types are skipped.
+- A finding reads `Namespace.Type.Method(ParameterType, …)`. `ShouldMatchRoster` fails in both directions, like the options roster; `ShouldBeClean()` is the empty roster. `MembersRead` lets a test assert the scan saw the library at all.
 
 ## License
 

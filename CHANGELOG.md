@@ -3,6 +3,20 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [0.4.0] - Unreleased
+
+### Added
+- **`AsyncCancellation.Scan(assemblies)`: public async methods a caller cannot cancel.** Reports each public or protected
+  method of an exported type that returns `Task`, `ValueTask`, their generic forms or `IAsyncEnumerable<T>` and takes no
+  `CancellationToken`, once, where the signature is declared. Overrides and implementations of outside interfaces
+  (`IAsyncDisposable.DisposeAsync`) are not the library's signature and are not reported.
+- **`ResultReturns.Scan(assemblies)`: public methods that return a result object** — a type with a success flag
+  (`IsSuccess`/`Success`/`Succeeded`/`IsSuccessful`) and an error (`Error`/`ErrorMessage`/`Errors`/`Exception`), directly
+  or through `Task<T>`/`ValueTask<T>`. Per-item outcomes inside a collection and the result type's own factories are not
+  reported. `ResultReturns.IsResultType(type)` exposes the shape test.
+- `PublicApiReport` for both: `Findings` (`Namespace.Type.Method(ParameterType, …)`), `MembersRead`, `ShouldMatchRoster(known)`
+  (fails in both directions) and `ShouldBeClean()`.
+
 ## [0.3.0] - 2026-09-29
 
 ### Changed
