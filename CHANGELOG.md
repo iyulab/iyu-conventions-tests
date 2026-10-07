@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [0.5.0] - Unreleased
+## [0.5.0] - 2026-10-07
 
 ### Added
 - **`OperationalLanguage.PlaceholderNamed(names)`: a rule that keeps content out of log templates.** Flags a
