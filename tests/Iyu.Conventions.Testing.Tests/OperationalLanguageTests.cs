@@ -59,6 +59,39 @@ public class OperationalLanguageTests
     }
 
     [Fact]
+    public void ContentRule_FindsContentNamedPlaceholders_Only()
+    {
+        var report = OperationalLanguage.Scan([Defective], OperationalLanguage.PlaceholderNamed(OperationalLanguage.ContentPlaceholderNames));
+
+        var found = report.Findings.Select(f => f.Location.Split('.').Last()).ToList();
+        Assert.Equal(["SearchStarting"], found);
+    }
+
+    [Fact]
+    public void ContentRule_PassesTheCleanFixture_AfterReadingItsTemplate()
+    {
+        var report = OperationalLanguage.Scan([Clean], OperationalLanguage.PlaceholderNamed(OperationalLanguage.ContentPlaceholderNames));
+
+        report.ShouldBeClean();
+        Assert.True(report.LogMessagesRead >= 1, $"the scan must see the fixture's log message (read {report.LogMessagesRead})");
+    }
+
+    [Theory]
+    [InlineData("Run {Query}", true)]
+    [InlineData("Run {query:x}", true)]
+    [InlineData("Run { Query , -5 }", true)]
+    [InlineData("Run {QueryLength}", false)]
+    [InlineData("Run {{Query}}", false)]
+    [InlineData("Run {{{Query}}}", true)]
+    [InlineData("Unclosed {Query", false)]
+    public void PlaceholderNamed_MatchesWholeNamesOnly(string template, bool flagged) =>
+        Assert.Equal(flagged, OperationalLanguage.PlaceholderNamed(["Query"])(template));
+
+    [Fact]
+    public void PlaceholderNamed_RejectsAnEmptyNameList() =>
+        Assert.Throws<ArgumentException>(() => OperationalLanguage.PlaceholderNamed([]));
+
+    [Fact]
     public void EmptyAssemblyList_IsRejected()
     {
         Assert.Throws<ArgumentException>(() => OperationalLanguage.Scan([], OperationalLanguage.ContainsHangul));

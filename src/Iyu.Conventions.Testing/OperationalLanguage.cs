@@ -5,7 +5,7 @@ using System.Text;
 namespace Iyu.Conventions.Testing;
 
 /// <summary>
-/// Finds operational text — log message templates and exception messages — that breaks a language rule.
+/// Finds operational text — log message templates and exception messages — that breaks a rule: a language rule, or a rule on what a log template may carry.
 /// Operators read these at run time, paste them into issues and search them in log pipelines; text a
 /// tokenizer or an operator cannot handle makes a failure harder to triage than it has to be.
 /// </summary>
@@ -32,6 +32,74 @@ public static class OperationalLanguage
 
     /// <summary>A rule that flags text containing any character outside ASCII.</summary>
     public static Func<string, bool> NonAscii { get; } = text => text.Any(c => c > 0x7F);
+
+    /// <summary>
+    /// Placeholder names that, by their name, carry user or model text: a query, a prompt, a response, a document's
+    /// content. A starting set for <see cref="PlaceholderNamed"/>; add the names your domain uses.
+    /// </summary>
+    public static IReadOnlyList<string> ContentPlaceholderNames { get; } =
+    [
+        "Content", "Query", "Prompt", "Response", "Completion", "Input", "Output", "Text", "Question", "Answer",
+        "Summary", "Snippet", "Preview", "Arguments", "Instructions",
+    ];
+
+    /// <summary>
+    /// A rule that flags a message template with a placeholder whose whole name is one of <paramref name="names"/>,
+    /// compared case-insensitively — <c>{Query}</c> and <c>{query,10}</c> match <c>Query</c>; <c>{QueryLength}</c>
+    /// and the escaped <c>{{Query}}</c> do not.
+    /// </summary>
+    /// <remarks>
+    /// Use it to keep content out of logs: a log pipeline is shipped elsewhere, kept under its own retention and
+    /// outlives a user's deletion request. Log a length, a count, an id or a fingerprint under a name that says so.
+    /// Interpolated exception messages carry no placeholder names in the compiled code, so this rule judges
+    /// log templates in practice.
+    /// </remarks>
+    /// <param name="names">The placeholder names to reject, for example <see cref="ContentPlaceholderNames"/>.</param>
+    public static Func<string, bool> PlaceholderNamed(IEnumerable<string> names)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        var rejected = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+        if (rejected.Count == 0)
+        {
+            throw new ArgumentException("At least one name is required; an empty rule flags nothing.", nameof(names));
+        }
+
+        return text => Placeholders(text).Any(rejected.Contains);
+    }
+
+    /// <summary>The placeholder names of a message template, without format or alignment, skipping escaped braces.</summary>
+    internal static IEnumerable<string> Placeholders(string template)
+    {
+        for (var i = 0; i < template.Length; i++)
+        {
+            if (template[i] != '{')
+            {
+                continue;
+            }
+
+            if (i + 1 < template.Length && template[i + 1] == '{')
+            {
+                i++;
+                continue;
+            }
+
+            var end = template.IndexOf('}', i + 1);
+            if (end < 0)
+            {
+                yield break;
+            }
+
+            var body = template.AsSpan(i + 1, end - i - 1);
+            var cut = body.IndexOfAny(',', ':');
+            var name = (cut < 0 ? body : body[..cut]).Trim();
+            if (name.Length > 0)
+            {
+                yield return name.ToString();
+            }
+
+            i = end;
+        }
+    }
 
     /// <summary>
     /// Scans <paramref name="assemblies"/> for operational text that <paramref name="isViolation"/> flags.
@@ -229,7 +297,7 @@ public sealed class OperationalLanguageReport
 
         var builder = new StringBuilder()
             .Append(Findings.Count)
-            .AppendLine(" piece(s) of operational text break the language rule. Log and exception messages are read by operators and log pipelines:");
+            .AppendLine(" piece(s) of operational text break the rule. Log and exception messages are read by operators and log pipelines:");
         foreach (var finding in Findings)
         {
             builder.Append("  ").Append(finding.Kind).Append(" in ").Append(finding.Location).Append(": ").AppendLine(finding.Text);

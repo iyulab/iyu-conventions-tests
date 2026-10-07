@@ -3,6 +3,20 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [0.5.0] - Unreleased
+
+### Added
+- **`OperationalLanguage.PlaceholderNamed(names)`: a rule that keeps content out of log templates.** Flags a
+  `[LoggerMessage]` template with a placeholder whose whole name (case-insensitive, alignment and format ignored, escaped
+  braces skipped) is one of the names — `{Query}` and `{query,20}` are flagged, `{QueryLength}` is not. Pass it to
+  `OperationalLanguage.Scan` like the language rules.
+- `OperationalLanguage.ContentPlaceholderNames`: a starting set of names that carry user or model text (`Content`,
+  `Query`, `Prompt`, `Response`, `Input`, `Output`, `Text`, `Arguments`, …). Add your domain's names to it.
+
+### Changed
+- `OperationalLanguageReport.ShouldBeClean()` says the text «breaks the rule» rather than «the language rule», since a
+  rule may now be about content.
+
 ## [0.4.0] - 2026-10-05
 
 ### Added

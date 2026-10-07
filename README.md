@@ -81,6 +81,26 @@ public void OperationalTextIsAscii()
 
 The rules are plain predicates. `ContainsHangul` and `NonAscii` are built in; pass your own for anything else.
 
+### Content in log templates
+
+A log pipeline is shipped elsewhere, kept under its own retention and outlives a user's deletion request, so a library
+that handles user or model text should log lengths, counts, ids and fingerprints - never the text. `PlaceholderNamed`
+turns that into a rule on placeholder names:
+
+```csharp
+[Fact]
+public void LogTemplatesCarryNoContent()
+{
+    var report = OperationalLanguage.Scan(Libraries,
+        OperationalLanguage.PlaceholderNamed([.. OperationalLanguage.ContentPlaceholderNames, "Reason"]));
+    Assert.True(report.LogMessagesRead > 0, "the scan must see the library's log templates");
+    report.ShouldBeClean();
+}
+```
+
+`{Query}` is flagged; `{QueryLength}` is not. `ContentPlaceholderNames` is a starting set - add the names your domain
+uses for text (a fact, a rejection reason someone typed).
+
 ## Public API: cancellation and result returns
 
 Two rules on the public surface (public and protected methods of exported types), read by reflection:

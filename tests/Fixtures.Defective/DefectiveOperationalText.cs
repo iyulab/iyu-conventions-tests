@@ -14,6 +14,14 @@ public static partial class DefectiveLog
     /// <summary>ASCII in a positional message: not flagged.</summary>
     [LoggerMessage(2, LogLevel.Warning, "Retrying {Name}")]
     public static partial void Retrying(ILogger logger, string name);
+
+    /// <summary>A content-named placeholder, with alignment and in another case: flagged by the content rule.</summary>
+    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "Search starting: {query,20}")]
+    public static partial void SearchStarting(ILogger logger, string query);
+
+    /// <summary>A length named as such, and an escaped brace: not flagged by the content rule.</summary>
+    [LoggerMessage(EventId = 4, Level = LogLevel.Information, Message = "Search of {QueryLength} chars; literal {{Query}} braces")]
+    public static partial void SearchMeasured(ILogger logger, int queryLength);
 }
 
 public static class DefectiveThrows
