@@ -22,7 +22,7 @@ public class OptionsReachabilityTests
         var report = OptionsReachability.Scan([Defective], Options);
 
         Assert.Equal(
-            [typeof(GadgetOptions), typeof(HolderOptions), typeof(ThingOptions), typeof(WidgetOptions)],
+            [typeof(GadgetOptions), typeof(HolderOptions), typeof(ScoringOptions), typeof(ThingOptions), typeof(WidgetOptions)],
             report.OptionTypes);
         Assert.Equal(["Ratio"], report.Unread[typeof(HolderOptions).FullName!]);
         Assert.Equal(["Unused"], report.Unread[typeof(WidgetOptions).FullName!]);
@@ -160,6 +160,36 @@ public class OptionsReachabilityTests
 
         Assert.Contains("known but not found", ex.Message, StringComparison.Ordinal);
         Assert.Contains($"{typeof(CleanOptions).FullName}: Retries", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WithNestedSettings_ScansTheSettingsObjectsAnOptionsTypeHolds()
+    {
+        // A settings object reached through an options property (VerificationOptions.CustomCriteria) is as much a set of
+        // promises as the options type itself; a scan by name never saw its unread members.
+        var report = OptionsReachability.Scan([Defective], OptionsTypes.WithNestedSettings([Defective], Options));
+
+        Assert.Contains(typeof(ScoringWeights), report.OptionTypes);
+        Assert.Equal(["Keyword"], report.Unread[typeof(ScoringWeights).FullName!]);
+        Assert.Empty(report.Unread[typeof(ScoringOptions).FullName!]);
+    }
+
+    [Fact]
+    public void ByNameAlone_TheSettingsObjectIsNotScanned()
+    {
+        // Control for the test above.
+        var report = OptionsReachability.Scan([Defective], Options);
+
+        Assert.DoesNotContain(typeof(ScoringWeights), report.OptionTypes);
+    }
+
+    [Fact]
+    public void WithNestedSettings_DoesNotFollowTypesOutsideTheScannedAssemblies()
+    {
+        // string, collections and framework types are values, not settings objects of the library.
+        var report = OptionsReachability.Scan([Clean], OptionsTypes.WithNestedSettings([Clean], Options));
+
+        Assert.All(report.OptionTypes, t => Assert.Equal(Clean, t.Assembly));
     }
 
     [Fact]

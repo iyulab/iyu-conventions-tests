@@ -181,4 +181,41 @@ public static class OptionsTypes
 
         return type => suffixes.Any(s => type.Name.EndsWith(s, StringComparison.Ordinal));
     }
+
+    /// <summary>
+    /// The types <paramref name="isOptionsType"/> accepts, plus every settings object they hold: a public, non-abstract
+    /// class of <paramref name="assemblies"/> that is the type of a public settable (or init) property of an accepted
+    /// type, followed recursively. A naming rule alone never sees such an object (a <c>Weights</c> or <c>Criteria</c>
+    /// class behind an options property), though each of its properties is as much a promise as the options type's own.
+    /// </summary>
+    /// <param name="assemblies">The assemblies the scan covers; types outside them (strings, collections, framework
+    /// types) are values, not settings objects, and are not followed.</param>
+    /// <param name="isOptionsType">The rule that picks the options types to start from, such as
+    /// <see cref="NamedWith(string[])"/>.</param>
+    public static Func<Type, bool> WithNestedSettings(IEnumerable<Assembly> assemblies, Func<Type, bool> isOptionsType)
+    {
+        ArgumentNullException.ThrowIfNull(assemblies);
+        ArgumentNullException.ThrowIfNull(isOptionsType);
+
+        var candidates = assemblies.Distinct()
+            .SelectMany(IlInspection.SafeTypes)
+            .Where(t => t is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false } && (t.IsPublic || t.IsNestedPublic))
+            .ToHashSet();
+        var accepted = candidates.Where(isOptionsType).ToHashSet();
+        var pending = new Queue<Type>(accepted);
+        while (pending.TryDequeue(out var type))
+        {
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (property.SetMethod is { IsPublic: true }
+                    && candidates.Contains(property.PropertyType)
+                    && accepted.Add(property.PropertyType))
+                {
+                    pending.Enqueue(property.PropertyType);
+                }
+            }
+        }
+
+        return accepted.Contains;
+    }
 }

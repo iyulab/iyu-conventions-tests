@@ -41,6 +41,8 @@ public class ConventionsTests
 
 The roster fails in both directions. A newly added option that nothing reads fails, and so does a known entry for an option that has since been wired: both are changes the roster has to record on purpose.
 
+A naming rule sees only the types it names. Settings that live in an object of their own behind an options property (a `Weights` or `Criteria` class) are found with `OptionsTypes.WithNestedSettings(Libraries, OptionsTypes.NamedWith("Options"))` (0.6.0): it adds every public class of the scanned assemblies that is the type of a public settable or init property of an accepted type, recursively.
+
 ## What counts as a read
 
 - A call to the option property's getter from any type outside the options type.

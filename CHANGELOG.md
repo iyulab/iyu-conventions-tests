@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [Unreleased]
+
+### Added
+- **`OptionsTypes.WithNestedSettings(assemblies, isOptionsType)`: settings objects behind an options property are scanned
+  too.** A naming rule such as `NamedWith("Options")` never saw a `Weights` or `Criteria` class held by an options type,
+  so its unread members went unreported. The new rule accepts what the given rule accepts plus every public class of the
+  assemblies that is the type of a public settable (or init) property of an accepted type, recursively; strings,
+  collections and framework types are not followed.
+
 ## [0.5.0] - 2026-10-07
 
 ### Added

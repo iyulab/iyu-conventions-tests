@@ -155,3 +155,30 @@ public sealed class Thing
 
     public int Effective { get; }
 }
+
+/// <summary>
+/// An options type whose settings live in an object of their own: <c>Weights</c> is read, and of the weights only
+/// <c>Semantic</c> is. A scan by name sees <see cref="ScoringOptions"/> alone; following its settable properties also
+/// finds <see cref="ScoringWeights"/> and its unread <c>Keyword</c>.
+/// </summary>
+public class ScoringOptions
+{
+    public ScoringWeights Weights { get; set; } = new();
+}
+
+public class ScoringWeights
+{
+    public double Semantic { get; set; }
+
+    public double Keyword { get; set; }
+}
+
+public sealed class Scorer
+{
+    public Scorer(ScoringOptions options)
+    {
+        Score = options.Weights.Semantic;
+    }
+
+    public double Score { get; }
+}
