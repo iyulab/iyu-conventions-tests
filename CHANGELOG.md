@@ -7,6 +7,7 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
 ### Changed
 - **The nuget.org «Release Notes» of every package link to the GitHub release of its version**, whose notes are this CHANGELOG's section for that version.
+- **The package description names all four checks** (options reachability, operational language, async cancellation, result returns); it described only the first.
 
 ## [0.6.0] - 2026-10-10
 

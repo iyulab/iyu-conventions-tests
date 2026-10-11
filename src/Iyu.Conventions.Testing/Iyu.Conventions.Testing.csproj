@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageId>Iyu.Conventions.Testing</PackageId>
-    <Description>Convention checks for .NET libraries, run from a repository's own test project: finds public options that nothing in the library reads. No dependency beyond the runtime, so it works with any test framework.</Description>
+    <Description>Convention checks for .NET libraries, run from a repository's own test project: public options that nothing in the library reads, log and exception text that breaks an operational-language rule, public async methods without a CancellationToken, and methods that report failure through a result object. No dependency beyond the runtime, so it works with any test framework.</Description>
     <PackageTags>testing;conventions;options;reflection;il</PackageTags>
   </PropertyGroup>
 
