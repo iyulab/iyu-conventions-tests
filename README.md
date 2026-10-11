@@ -2,16 +2,30 @@
 
 Convention checks for .NET libraries, run from a repository's own test project.
 
-Four checks today:
+```bash
+dotnet add package Iyu.Conventions.Testing   # in the test project
+```
 
-- **Options reachability** finds public options that nothing in the library reads.
-- **Operational language** finds log and exception messages that break a language rule.
-- **Async cancellation** finds public async methods that take no `CancellationToken`.
-- **Result returns** finds public methods that report failure through a success flag and an error instead of an exception.
+## Packages
+
+| Package | Purpose |
+|---|---|
+| `Iyu.Conventions.Testing` | Reflection and IL scans over the assemblies you pass, asserted from your own test project. Nothing to register: each check is a static `Scan` call inside a test. |
+
+## Features
+
+Four checks today. Each one is opt-in: write a test that calls it.
+
+| Check | What it finds | Entry point |
+|---|---|---|
+| **Options reachability** | Public options that nothing in the library reads | `OptionsReachability.Scan(assemblies, OptionsTypes.NamedWith("Options"))` → `ShouldMatchRoster(knownUnread)`; nested settings classes via `OptionsTypes.WithNestedSettings` |
+| **Operational language** | Log templates and exception messages that break a rule (non-ASCII, Hangul, content placeholders) | `OperationalLanguage.Scan(assemblies, OperationalLanguage.NonAscii)` → `ShouldBeClean()`; rules `NonAscii`, `ContainsHangul`, `PlaceholderNamed(…)` or your own predicate |
+| **Async cancellation** | Public async methods that take no `CancellationToken` | `AsyncCancellation.Scan(assemblies)` → `ShouldMatchRoster(known)` / `ShouldBeClean()` |
+| **Result returns** | Public methods that report failure through a success flag and an error instead of an exception | `ResultReturns.Scan(assemblies)` → `ShouldMatchRoster(known)` / `ShouldBeClean()` |
 
 The first finds **public options that nothing in the library reads**. An option nothing reads is a promise the library does not keep: a caller sets it, and nothing changes and nothing is reported. No build, test or review notices it, because nothing fails.
 
-The package has no dependency beyond the runtime. Assertions throw `RosterMismatchException`, so it works with xUnit, NUnit, MSTest or anything else that treats an exception as a failure.
+The package has no dependency beyond the runtime. Assertions throw an exception - `RosterMismatchException` from the options and public-API rosters, `OperationalLanguageException` from `OperationalLanguageReport.ShouldBeClean()` - so it works with xUnit, NUnit, MSTest or anything else that treats an exception as a failure.
 
 ## Usage
 
