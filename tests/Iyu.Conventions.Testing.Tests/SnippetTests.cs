@@ -90,6 +90,24 @@ public class SnippetTests
     }
 
     [Fact]
+    public void Key_UsesARelativeName_AndShortensARootedPath()
+    {
+        Assert.Equal("src/Pkg/README.md line 6: Library", DocSnippets.Parse(Document, "src/Pkg/README.md")[0].Key);
+
+        var path = Path.Combine(Path.GetTempPath(), $"snippets-{Guid.NewGuid():N}.md");
+        File.WriteAllText(path, Document);
+        try
+        {
+            Assert.Equal($"{Path.GetFileName(path)} line 6: Library", DocSnippets.Read(path)[0].Key);
+            Assert.Equal("docs/guide.md line 6: Library", DocSnippets.Read(path, "docs/guide.md")[0].Key);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Read_ReadsAFile()
     {
         var path = Path.Combine(Path.GetTempPath(), $"snippets-{Guid.NewGuid():N}.md");
@@ -131,6 +149,20 @@ public class SnippetTests
         // A member named like the stand-in is not a use of it.
         var member = Compiler.Program("var x = new { options = 1 }; var y = x.options;");
         Assert.DoesNotContain("CleanOptions options = new();", member, StringComparison.Ordinal);
+    }
+
+    // Every way a top-level example can declare a local is a declaration: a stand-in added next to it is a duplicate (CS0128).
+    [Theory]
+    [InlineData("await using var options = new System.IO.MemoryStream(); options.WriteByte(1);")]
+    [InlineData("using var options = new System.IO.MemoryStream(); options.WriteByte(1);")]
+    [InlineData("var (options, other) = (new CleanOptions(), 2); _ = options;")]
+    [InlineData("int.TryParse(\"1\", out var options); _ = options;")]
+    [InlineData("object o = new CleanOptions(); if (o is CleanOptions options) { _ = options; }")]
+    [InlineData("foreach (var options in new[] { new CleanOptions() }) { _ = options; }")]
+    public void StandIn_IsNotAdded_WhenTheExampleDeclaresTheName(string example)
+    {
+        Assert.DoesNotContain("CleanOptions options = new();", Compiler.Program(example), StringComparison.Ordinal);
+        Assert.Empty(Compiler.Compile(example));
     }
 
     [Fact]

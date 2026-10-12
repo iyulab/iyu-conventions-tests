@@ -161,7 +161,9 @@ public sealed class SnippetCompiler
 
     private static List<string> UndeclaredNames(string statements, IEnumerable<string> candidates)
     {
-        var root = CSharpSyntaxTree.ParseText(statements, new CSharpParseOptions(LanguageVersion.Latest, kind: SourceCodeKind.Script)).GetRoot();
+        // Parsed as a regular file of top-level statements, the way the example compiles: script mode does not read a
+        // top-level `using var x = …;` / `await using var x = …;` as a declaration, so a stand-in for x was added beside it.
+        var root = CSharpSyntaxTree.ParseText(statements, new CSharpParseOptions(LanguageVersion.Latest)).GetRoot();
         var declared = root.DescendantNodes().Select(n => n switch
             {
                 VariableDeclaratorSyntax v => v.Identifier.Text,

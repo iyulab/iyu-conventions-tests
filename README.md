@@ -202,6 +202,8 @@ public class ReadmeSnippetTests
 - `DocSnippets.Read` / `Parse` read fences tagged `csharp`, `cs` or `c#` (any case, with or without an info string after a
   space), also inside a blockquote. A heading is a `#` line outside every fence, so a shell comment in a `bash` block does
   not rename the section.
+  `Read(path, file)` names the document (`src/Package/README.md`) in each `DocSnippet.Key`, for a test that reads several
+  documents with the same file name.
 - `SnippetCompiler` assembles each example as a top-level program, in this order:
   - its own usings;
   - `Usings`;

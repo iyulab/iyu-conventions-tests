@@ -3,6 +3,18 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [0.9.0] - Unreleased
+
+### Added
+- **`DocSnippets.Read(path, file)` names the document in the results.** Pass a path relative to the repository
+  (`src/Package/README.md`) when a test reads several documents with the same file name. `DocSnippet.Key` then shows that
+  name, so two READMEs' examples no longer share a key. A rooted path is still shortened to its file name.
+
+### Fixed
+- **`SnippetCompiler` no longer adds a stand-in next to an example's own `using var` / `await using var` declaration.**
+  The stand-in check parsed the example in script mode, which does not read a top-level `using var x = …;` as a
+  declaration, so the example failed with CS0128 («a local named x is already defined»).
+
 ## [0.8.0] - 2026-10-12
 
 ### Added

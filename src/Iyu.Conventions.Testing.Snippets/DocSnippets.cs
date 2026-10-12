@@ -4,14 +4,19 @@ using System.Text.RegularExpressions;
 namespace Iyu.Conventions.Testing.Snippets;
 
 /// <summary>One C# example found in a Markdown document.</summary>
-/// <param name="File">The document it came from, as given to <see cref="DocSnippets.Read"/>.</param>
+/// <param name="File">The document it came from: the name given to <see cref="DocSnippets.Read"/> or
+/// <see cref="DocSnippets.Parse"/>, else the path it was read from.</param>
 /// <param name="Line">The 1-based line of the example's first code line.</param>
 /// <param name="Heading">The text of the last heading above the example, or <c>(top)</c>.</param>
 /// <param name="Code">The example's code, with any blockquote markers removed.</param>
 public sealed record DocSnippet(string File, int Line, string Heading, string Code)
 {
-    /// <summary>A stable name for test output and theory data: <c>README.md line 42: Quick Start</c>.</summary>
-    public string Key => $"{Path.GetFileName(File)} line {Line}: {Heading}";
+    /// <summary>
+    /// A stable name for test output and theory data: <c>README.md line 42: Quick Start</c>, or
+    /// <c>src/Package/README.md line 7: Usage</c> when the document was given a relative name. A rooted path is shortened
+    /// to its file name, so a machine's folders never appear in a test name.
+    /// </summary>
+    public string Key => $"{(Path.IsPathRooted(File) ? Path.GetFileName(File) : File)} line {Line}: {Heading}";
 }
 
 /// <summary>Reads the C# examples out of Markdown.</summary>
@@ -29,11 +34,15 @@ public static partial class DocSnippets
     [GeneratedRegex(@"^(`{3,}|~{3,})")]
     private static partial Regex AnyFence();
 
-    /// <summary>Reads every C# example in the Markdown file at <paramref name="path"/>.</summary>
-    public static IReadOnlyList<DocSnippet> Read(string path)
+    /// <summary>
+    /// Reads every C# example in the Markdown file at <paramref name="path"/>. <paramref name="file"/> names the document in
+    /// the results (<see cref="DocSnippet.File"/> and <see cref="DocSnippet.Key"/>) — pass a path relative to the repository
+    /// (<c>src/Package/README.md</c>) when a test reads several documents with the same file name.
+    /// </summary>
+    public static IReadOnlyList<DocSnippet> Read(string path, string? file = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        return Parse(File.ReadAllText(path), path);
+        return Parse(File.ReadAllText(path), file ?? path);
     }
 
     /// <summary>Reads every C# example in <paramref name="markdown"/>; <paramref name="file"/> names it in the results.</summary>
