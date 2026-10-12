@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [0.7.0] - Unreleased
+## [0.7.0] - 2026-10-12
 
 ### Added
 - **`OptionsReachability.Scan(assemblies, isOptionsType, isValidation)` with `OptionsValidation.DeclaredIn(types)`: reads in
