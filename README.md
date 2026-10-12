@@ -11,7 +11,7 @@ dotnet add package Iyu.Conventions.Testing   # in the test project
 | Package | Purpose |
 |---|---|
 | `Iyu.Conventions.Testing` | Reflection and IL scans over the assemblies you pass, asserted from your own test project. Nothing to register: each check is a static `Scan` call inside a test. |
-| `Iyu.Conventions.Testing.Snippets` | Compiles the C# examples in your Markdown (README, docs) from your own test project, so an example that no longer matches the library fails a test. A separate package because it depends on `Microsoft.CodeAnalysis.CSharp`; the package above stays dependency-free. |
+| `Iyu.Conventions.Testing.Snippets` (from 0.8.0, not yet published) | Compiles the C# examples in your Markdown (README, docs) from your own test project, so an example that no longer matches the library fails a test. A separate package because it depends on `Microsoft.CodeAnalysis.CSharp`; the package above stays dependency-free. |
 
 ## Features
 
@@ -161,7 +161,7 @@ public void PublicMethods_DoNotReturnResultObjects() =>
 - Each signature is reported once, where it is declared: an override or an interface implementation follows its declaration. A signature the library does not own (an override of a framework base, an implementation of an outside interface such as `IAsyncDisposable.DisposeAsync`) is not reported. Compiler-generated methods, property accessors and delegate types are skipped.
 - A finding reads `Namespace.Type.Method(ParameterType, …)`. `ShouldMatchRoster` fails in both directions, like the options roster; `ShouldBeClean()` is the empty roster. `MembersRead` lets a test assert the scan saw the library at all.
 
-## Documentation examples (`Iyu.Conventions.Testing.Snippets`)
+## Documentation examples (`Iyu.Conventions.Testing.Snippets`, from 0.8.0)
 
 An example in a README that no longer compiles is a promise the documentation does not keep. Nothing fails until a
 reader copies it.
