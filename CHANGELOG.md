@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [Unreleased]
+## [0.10.0] - 2026-10-13
 
 ### Added
 - **`SnippetCompiler.StandIns` can declare a type.** A stand-in whose declaration is a class, record, struct, interface,
