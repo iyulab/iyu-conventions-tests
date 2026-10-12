@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [Unreleased]
+
+### Added
+- **`SnippetCompiler.StandIns` can declare a type.** A stand-in whose declaration is a class, record, struct, interface,
+  enum or delegate (the reader's own implementation of a library interface, such as `sealed class MyHandler : IHandler`)
+  is added after the example's statements, where a top-level program allows a type. It counts as used when the example's
+  statements or its own types use it, and it is not added when the example declares a type of that name. Before, it was
+  put in front of the statements and failed to compile.
+
 ## [0.9.0] - 2026-10-12
 
 ### Added

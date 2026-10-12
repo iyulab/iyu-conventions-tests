@@ -52,7 +52,9 @@ public sealed class SnippetCompiler
 
     /// <summary>
     /// Declarations by the name they declare, added to an example that uses the name without declaring it — for example
-    /// <c>["services"] = "Microsoft.Extensions.DependencyInjection.IServiceCollection services = null!;"</c>.
+    /// <c>["services"] = "Microsoft.Extensions.DependencyInjection.IServiceCollection services = null!;"</c>. A declaration
+    /// that is a type (<c>["MyHandler"] = "sealed class MyHandler : IHandler { … }"</c>, the reader's own implementation of
+    /// a library interface) is added after the example's statements, and counts as used when the example's own types use it.
     /// </summary>
     public IReadOnlyDictionary<string, string> StandIns { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
@@ -96,7 +98,9 @@ public sealed class SnippetCompiler
         var statements = root.Members.OfType<GlobalStatementSyntax>().Select(s => s.ToFullString()).ToList();
         var declarations = root.Members.Where(m => m is not GlobalStatementSyntax).Select(m => m.ToFullString()).ToList();
         var body = string.Concat(statements);
-        var standIns = UndeclaredNames(body, StandIns.Keys).Select(name => StandIns[name]);
+        var typeKeys = StandIns.Where(s => IsTypeDeclaration(s.Value)).Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
+        var standIns = UndeclaredNames(body, StandIns.Keys.Where(k => !typeKeys.Contains(k))).Select(name => StandIns[name]);
+        var typeStandIns = UndeclaredNames(body + string.Concat(declarations), typeKeys).Select(name => StandIns[name]);
 
         var source = new StringBuilder();
         foreach (var directive in stated)
@@ -116,7 +120,7 @@ public sealed class SnippetCompiler
 
         // Top-level statements must precede type declarations, whatever order the example shows them in.
         source.Append(body).AppendLine();
-        foreach (var declaration in declarations)
+        foreach (var declaration in declarations.Concat(typeStandIns))
         {
             source.Append(declaration).AppendLine();
         }
@@ -159,6 +163,9 @@ public sealed class SnippetCompiler
     private static CompilationUnitSyntax Parse(string code) =>
         CSharpSyntaxTree.ParseText(code, new CSharpParseOptions(LanguageVersion.Latest)).GetCompilationUnitRoot();
 
+    private static bool IsTypeDeclaration(string declaration) =>
+        Parse(declaration).Members.Any(m => m is BaseTypeDeclarationSyntax or DelegateDeclarationSyntax);
+
     private static List<string> UndeclaredNames(string statements, IEnumerable<string> candidates)
     {
         // Parsed as a regular file of top-level statements, the way the example compiles: script mode does not read a
@@ -171,6 +178,8 @@ public sealed class SnippetCompiler
                 SingleVariableDesignationSyntax s => s.Identifier.Text,
                 ParameterSyntax p => p.Identifier.Text,
                 LocalFunctionStatementSyntax l => l.Identifier.Text,
+                BaseTypeDeclarationSyntax t => t.Identifier.Text,
+                DelegateDeclarationSyntax d => d.Identifier.Text,
                 _ => null,
             })
             .OfType<string>()

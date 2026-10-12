@@ -165,6 +165,34 @@ public class SnippetTests
         Assert.Empty(Compiler.Compile(example));
     }
 
+    // A stand-in can be a type the reader writes themselves (their own implementation of a library interface): it goes
+    // after the example's statements, where a type declaration may stand in a top-level program.
+    [Fact]
+    public void TypeStandIn_IsDeclaredAfterTheStatements_WhenUsed_AndNotWhenTheExampleDeclaresIt()
+    {
+        var compiler = new SnippetCompiler(SnippetCompiler.ReferencesFor(typeof(CleanService).Assembly))
+        {
+            Usings = ["System", "Iyu.Conventions.Testing.Fixtures.Clean"],
+            StandIns = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["MyOptions"] = "sealed class MyOptions { public CleanOptions Build() => new(); }",
+            },
+        };
+
+        const string uses = "var service = new CleanService(new MyOptions().Build());";
+        Assert.Contains("sealed class MyOptions", compiler.Program(uses), StringComparison.Ordinal);
+        Assert.Empty(compiler.Compile(uses));
+
+        // Used only inside the example's own type.
+        const string usedInType = "var h = new Holder();\nsealed class Holder { public MyOptions Options { get; } = new(); }";
+        Assert.Empty(compiler.Compile(usedInType));
+
+        // Declared by the example itself.
+        const string declares = "var o = new MyOptions();\nsealed class MyOptions { }";
+        Assert.DoesNotContain("public CleanOptions Build()", compiler.Program(declares), StringComparison.Ordinal);
+        Assert.Empty(compiler.Compile(declares));
+    }
+
     [Fact]
     public void Program_KeepsTheExamplesOwnUsings_AndDoesNotRepeatThem()
     {
