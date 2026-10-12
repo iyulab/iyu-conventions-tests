@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Iyu.Conventions.Testing\Iyu.Conventions.Testing.csproj" />
+    <ProjectReference Include="..\..\src\Iyu.Conventions.Testing.Snippets\Iyu.Conventions.Testing.Snippets.csproj" />
     <ProjectReference Include="..\Fixtures.Defective\Iyu.Conventions.Testing.Fixtures.Defective.csproj" />
     <ProjectReference Include="..\Fixtures.Clean\Iyu.Conventions.Testing.Fixtures.Clean.csproj" />
   </ItemGroup>

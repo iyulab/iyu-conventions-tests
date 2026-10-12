@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Iyu.Conventions.Testing/Iyu.Conventions.Testing.csproj" />
+    <Project Path="src/Iyu.Conventions.Testing.Snippets/Iyu.Conventions.Testing.Snippets.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Fixtures.Clean/Iyu.Conventions.Testing.Fixtures.Clean.csproj" />

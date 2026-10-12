@@ -11,10 +11,11 @@ dotnet add package Iyu.Conventions.Testing   # in the test project
 | Package | Purpose |
 |---|---|
 | `Iyu.Conventions.Testing` | Reflection and IL scans over the assemblies you pass, asserted from your own test project. Nothing to register: each check is a static `Scan` call inside a test. |
+| `Iyu.Conventions.Testing.Snippets` | Compiles the C# examples in your Markdown (README, docs) from your own test project, so an example that no longer matches the library fails a test. A separate package because it depends on `Microsoft.CodeAnalysis.CSharp`; the package above stays dependency-free. |
 
 ## Features
 
-Five checks today. Each one is opt-in: write a test that calls it.
+Five checks today, plus documentation examples in a second package. Each one is opt-in: write a test that calls it.
 
 | Check | What it finds | Entry point |
 |---|---|---|
@@ -159,6 +160,60 @@ public void PublicMethods_DoNotReturnResultObjects() =>
 - **`ResultReturns`** reports a method returning, directly or through `Task<T>`/`ValueTask<T>`, a type with a public `bool` named `IsSuccess`, `Success`, `Succeeded` or `IsSuccessful` and a public property named `Error`, `ErrorMessage`, `Errors` or `Exception`. Per-item outcomes inside a collection (a batch) are not reported, nor are the result type's own factories.
 - Each signature is reported once, where it is declared: an override or an interface implementation follows its declaration. A signature the library does not own (an override of a framework base, an implementation of an outside interface such as `IAsyncDisposable.DisposeAsync`) is not reported. Compiler-generated methods, property accessors and delegate types are skipped.
 - A finding reads `Namespace.Type.Method(ParameterType, …)`. `ShouldMatchRoster` fails in both directions, like the options roster; `ShouldBeClean()` is the empty roster. `MembersRead` lets a test assert the scan saw the library at all.
+
+## Documentation examples (`Iyu.Conventions.Testing.Snippets`)
+
+An example in a README that no longer compiles is a promise the documentation does not keep. Nothing fails until a
+reader copies it.
+
+```csharp
+using Iyu.Conventions.Testing.Snippets;
+
+public class ReadmeSnippetTests
+{
+    private static readonly IReadOnlyList<DocSnippet> Snippets = DocSnippets.Read(Path.Combine(RepoRoot, "README.md"));
+
+    private static readonly SnippetCompiler Compiler = new(SnippetCompiler.ReferencesFor(typeof(MyLibrary.Client).Assembly))
+    {
+        // The implicit usings, plus the namespace the README's Quick Start states once and assumes afterwards.
+        Usings = ["System", "System.Collections.Generic", "System.Linq", "System.Threading.Tasks", "MyLibrary"],
+        // Values a reader already has from the surrounding text, added only where an example uses the name without declaring it.
+        StandIns = new Dictionary<string, string> { ["services"] = "Microsoft.Extensions.DependencyInjection.IServiceCollection services = null!;" },
+    };
+
+    // Deliberate non-programs (a signature sketch, pseudocode), by heading, with the reason. Shrink it; never grow it silently.
+    private static readonly SnippetRoster Fragments = new(new Dictionary<string, string> { ["API sketch"] = "a signature listing" });
+
+    public static TheoryData<string> Keys() => new(Snippets.Select(s => s.Key));
+
+    [Theory, MemberData(nameof(Keys))]
+    public void Example_Compiles(string key)
+    {
+        var snippet = Snippets.Single(s => s.Key == key);
+        if (!Fragments.IsFragment(snippet))
+            Compiler.ShouldCompile(snippet);
+    }
+
+    [Fact]
+    public void Examples_AreFound_AndTheRosterNamesRealHeadings() => Fragments.ShouldMatch([.. Snippets], atLeast: 10);
+}
+```
+
+- `DocSnippets.Read` / `Parse` read fences tagged `csharp`, `cs` or `c#` (any case, with or without an info string after a
+  space), also inside a blockquote. A heading is a `#` line outside every fence, so a shell comment in a `bash` block does
+  not rename the section.
+- `SnippetCompiler` assembles each example as a top-level program, in this order:
+  - its own usings;
+  - `Usings`;
+  - the `StandIns` it needs, decided on the syntax tree: a name it declares, a member access, a named argument and an
+    anonymous type's member name do not count;
+  - its statements;
+  - then its types.
+
+  It compiles with Roslyn against the references you give. An example with no statements compiles as a library. Every
+  error-severity diagnostic fails; warnings do not. `Program(code)` returns the assembled source for a failure message.
+- `SnippetRoster.ShouldMatch(snippets, atLeast)` fails when the documents have fewer examples than the floor (a reader that
+  silently finds nothing), or when a listed heading has no example (a stale entry).
 
 ## License
 

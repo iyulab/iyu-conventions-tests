@@ -3,6 +3,21 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [Unreleased]
+
+### Added
+- **New package `Iyu.Conventions.Testing.Snippets`: compiles the C# examples in a repository's Markdown.**
+  - `DocSnippets.Read`/`Parse` read `csharp`, `cs` and `c#` fences, with or without an info string, also inside
+    blockquotes. Headings are tracked outside fences only.
+  - `SnippetCompiler` builds each example as a top-level program: the example's usings, then shared usings, then stand-in
+    declarations for names it uses without declaring (decided on the syntax tree), then statements before types. It
+    compiles with Roslyn against the references you give and fails on any error.
+  - `SnippetRoster` lists deliberate fragments by heading, with the reason. It fails on a stale heading or on too few
+    examples.
+  - It replaces the per-repository copies of the same test. Most of those copies read only an exact ```` ```csharp ```` fence,
+    so a ```` ```cs ```` example was never checked.
+  - It depends on `Microsoft.CodeAnalysis.CSharp` 5.9.0. `Iyu.Conventions.Testing` itself still has no dependency.
+
 ## [0.7.0] - 2026-10-12
 
 ### Added

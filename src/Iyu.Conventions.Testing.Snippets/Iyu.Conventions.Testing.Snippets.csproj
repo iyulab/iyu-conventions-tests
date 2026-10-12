@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Iyu.Conventions.Testing.Snippets</PackageId>
+    <Description>Compiles the C# examples in a repository's Markdown (README, docs) from its own test project, so an example that no longer matches the library fails a test. Reads csharp/cs/c# fences (including inside blockquotes), assembles each as a top-level program with the repository's usings and stand-in declarations, compiles it with Roslyn, and checks a roster of deliberate fragments. A separate package from Iyu.Conventions.Testing because it depends on Microsoft.CodeAnalysis.CSharp.</Description>
+    <PackageTags>testing;conventions;documentation;readme;snippets;roslyn</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+  </ItemGroup>
+
+</Project>
