@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [0.9.0] - Unreleased
+## [0.9.0] - 2026-10-12
 
 ### Added
 - **`DocSnippets.Read(path, file)` names the document in the results.** Pass a path relative to the repository
