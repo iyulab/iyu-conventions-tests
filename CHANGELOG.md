@@ -3,7 +3,18 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [Unreleased]
+## [0.7.0] - Unreleased
+
+### Added
+- **`OptionsReachability.Scan(assemblies, isOptionsType, isValidation)` with `OptionsValidation.DeclaredIn(types)`: reads in
+  your own validators no longer count.** A standalone validator class that is not an `IValidateOptions<T>` (a
+  `ConfigurationValidator` that range-checks settings) made an option nothing uses look honoured. Name the class and its
+  reads — lambdas and local functions included — are left out, so such an option is reported unread. The two-argument
+  `Scan` is unchanged.
+- **`OutboundAssignment.Scan(assemblies, isOutboundType)` → `OutboundAssignmentReport.ShouldMatchRoster(knownUnassigned)`:
+  the request types a library fills and sends out.** Reports the public settable properties nothing outside the type sets
+  — parameters the library never sends, which an implementer reads and always gets the default for. Copies
+  (`X = source.X`) and the type's own defaults do not count; `init` and `with` do.
 
 ### Changed
 - **The nuget.org «Release Notes» of every package link to the GitHub release of its version**, whose notes are this CHANGELOG's section for that version.

@@ -182,3 +182,46 @@ public sealed class Scorer
 
     public double Score { get; }
 }
+
+/// <summary>
+/// <c>Used</c> is read by <see cref="Gizmo"/>. <c>CheckedOnly</c> is read only by <see cref="GizmoConfigurationChecker"/>,
+/// a standalone validator that is not an <c>IValidateOptions&lt;T&gt;</c>. The scan counts that read unless the caller
+/// names the checker as a validator, and then <c>CheckedOnly</c> is unread.
+/// </summary>
+public class GizmoOptions
+{
+    public int Used { get; set; }
+
+    public int CheckedOnly { get; set; }
+}
+
+public sealed class GizmoConfigurationChecker
+{
+    public IReadOnlyList<string> Check(GizmoOptions options)
+    {
+        var errors = new List<string>();
+        if (options.CheckedOnly < 0)
+        {
+            errors.Add("CheckedOnly must not be negative.");
+        }
+
+        // A read inside a lambda lands in a compiler-generated type nested in the checker.
+        Func<bool> tooLarge = () => options.CheckedOnly > 1000;
+        if (tooLarge())
+        {
+            errors.Add("CheckedOnly is too large.");
+        }
+
+        return errors;
+    }
+}
+
+public sealed class Gizmo
+{
+    public Gizmo(GizmoOptions options)
+    {
+        Size = options.Used;
+    }
+
+    public int Size { get; }
+}

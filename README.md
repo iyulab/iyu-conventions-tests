@@ -14,11 +14,12 @@ dotnet add package Iyu.Conventions.Testing   # in the test project
 
 ## Features
 
-Four checks today. Each one is opt-in: write a test that calls it.
+Five checks today. Each one is opt-in: write a test that calls it.
 
 | Check | What it finds | Entry point |
 |---|---|---|
-| **Options reachability** | Public options that nothing in the library reads | `OptionsReachability.Scan(assemblies, OptionsTypes.NamedWith("Options"))` → `ShouldMatchRoster(knownUnread)`; nested settings classes via `OptionsTypes.WithNestedSettings` |
+| **Options reachability** | Public options that nothing in the library reads | `OptionsReachability.Scan(assemblies, OptionsTypes.NamedWith("Options"))` → `ShouldMatchRoster(knownUnread)`; nested settings classes via `OptionsTypes.WithNestedSettings`; your own validators via `OptionsValidation.DeclaredIn(…)` |
+| **Outbound assignment** | Public properties of a request the library fills and sends out (read by a caller's implementation) that the library never sets | `OutboundAssignment.Scan(assemblies, t => t == typeof(MyRequest))` → `ShouldMatchRoster(knownUnassigned)` |
 | **Operational language** | Log templates and exception messages that break a rule (non-ASCII, Hangul, content placeholders) | `OperationalLanguage.Scan(assemblies, OperationalLanguage.NonAscii)` → `ShouldBeClean()`; rules `NonAscii`, `ContainsHangul`, `PlaceholderNamed(…)` or your own predicate |
 | **Async cancellation** | Public async methods that take no `CancellationToken` | `AsyncCancellation.Scan(assemblies)` → `ShouldMatchRoster(known)` / `ShouldBeClean()` |
 | **Result returns** | Public methods that report failure through a success flag and an error instead of an exception | `ResultReturns.Scan(assemblies)` → `ShouldMatchRoster(known)` / `ShouldBeClean()` |
@@ -62,6 +63,7 @@ A naming rule sees only the types it names. Settings that live in an object of t
 - A call to the option property's getter from any type outside the options type.
 - A read inside the options type, in a member the library calls from outside it (a computed property, a fluent method that returns `this`).
 - **Not** validation (0.3.0+): a read in the options type's own `Validate…` methods, or in an `IValidateOptions<T>` validator. A range check does not make an option take effect. A `Validate…` method on another type (a guardrail's `ValidateInputAsync` reading its own options) is a use.
+- **Not** a read in a validator you name (0.7.0+): pass `OptionsValidation.DeclaredIn(typeof(MyConfigurationValidator))` as the third argument of `Scan`. A standalone validator class that is not an `IValidateOptions<T>` looks like any other reader; only you know it checks values rather than uses them. Its lambdas and local functions are included.
 - **Not** a read made only to copy the options into a new instance: the compiler's record copy method, or any method returning the options type whose body creates one (a constructor call, a record copy, `MemberwiseClone`).
 
 Reading is necessary, not sufficient. An option can be read and still have no effect, and that has no static signal. A property is attributed to the type that declares it.
@@ -76,6 +78,24 @@ Reading is necessary, not sufficient. An option can be read and still have no ef
 | `Unread` | Per options type (full name), the public properties nothing reads |
 | `Read` | Every read property, as `Namespace.Type.Property` |
 | `CrossAssemblyReads` | Reads whose reader lives in another assembly than the options type |
+
+## Outbound requests
+
+Some types named like options are requests the library *fills* and hands to a caller's implementation (a completion
+request passed to an `ITextCompletionService` someone else implements). Nothing in the library reads them, so a
+reachability roster lists every property and says nothing. What the library owes them is the other half: that it sets
+what it declares. `OutboundAssignment.Scan` reports the public settable properties nothing outside the type sets (0.7.0):
+
+```csharp
+[Fact]
+public void EveryRequestField_IsSent() =>
+    OutboundAssignment.Scan(Libraries, t => t == typeof(MyLibrary.CompletionRequest))
+        .ShouldMatchRoster(new Dictionary<string, string[]> { ["MyLibrary.CompletionRequest"] = ["TopP"] });
+```
+
+A setter whose value comes straight from the same property of another instance (`new Request { X = source.X }`) carries
+the value and does not count, and neither does a value the type's own constructor or initializer sets. An `init` accessor
+and a `with` expression count. `OutboundAssignmentReport` has `OutboundTypes`, `Unassigned` and `Assigned`.
 
 ## Operational language
 

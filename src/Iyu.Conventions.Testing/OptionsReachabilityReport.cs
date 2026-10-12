@@ -1,6 +1,6 @@
 namespace Iyu.Conventions.Testing;
 
-/// <summary>The result of <see cref="OptionsReachability.Scan"/>.</summary>
+/// <summary>The result of <see cref="OptionsReachability.Scan(IEnumerable{System.Reflection.Assembly}, Func{Type, bool})"/>.</summary>
 public sealed class OptionsReachabilityReport
 {
     internal OptionsReachabilityReport(
@@ -41,12 +41,40 @@ public sealed class OptionsReachabilityReport
     {
         ArgumentNullException.ThrowIfNull(knownUnread);
 
-        var found = Unread
+        Roster.ShouldMatch(
+            Unread,
+            knownUnread,
+            "A public option nothing in the library reads is a promise it does not keep. Wire it, or change the " +
+            "known roster as a deliberate decision and keep the option's documentation honest about it.");
+    }
+}
+
+/// <summary>Thrown when a scan's roster differs from the roster the repository declares.</summary>
+public sealed class RosterMismatchException : Exception
+{
+    /// <summary>Creates the exception with a message listing the difference.</summary>
+    public RosterMismatchException(string message)
+        : base(message)
+    {
+    }
+}
+
+/// <summary>The comparison every roster assertion makes: the found roster against the one the repository declares.</summary>
+internal static class Roster
+{
+    public static void ShouldMatch(
+        IReadOnlyDictionary<string, IReadOnlyList<string>> foundByType,
+        IReadOnlyDictionary<string, string[]> known,
+        string explanation)
+    {
+        ArgumentNullException.ThrowIfNull(known);
+
+        var found = foundByType
             .Where(kv => kv.Value.Count > 0)
             .Select(kv => $"{kv.Key}: {string.Join(",", kv.Value)}")
             .Order(StringComparer.Ordinal)
             .ToList();
-        var expected = knownUnread
+        var expected = known
             .Where(kv => kv.Value.Length > 0)
             .Select(kv => $"{kv.Key}: {string.Join(",", kv.Value.Order(StringComparer.Ordinal))}")
             .Order(StringComparer.Ordinal)
@@ -60,19 +88,8 @@ public sealed class OptionsReachabilityReport
         var added = found.Except(expected).ToList();
         var removed = expected.Except(found).ToList();
         throw new RosterMismatchException(
-            "A public option nothing in the library reads is a promise it does not keep. Wire it, or change the " +
-            "known roster as a deliberate decision and keep the option's documentation honest about it.\n" +
+            explanation + "\n" +
             "found but not known:\n  " + (added.Count == 0 ? "(none)" : string.Join("\n  ", added)) + "\n" +
             "known but not found:\n  " + (removed.Count == 0 ? "(none)" : string.Join("\n  ", removed)));
-    }
-}
-
-/// <summary>Thrown when a scan's roster differs from the roster the repository declares.</summary>
-public sealed class RosterMismatchException : Exception
-{
-    /// <summary>Creates the exception with a message listing the difference.</summary>
-    public RosterMismatchException(string message)
-        : base(message)
-    {
     }
 }

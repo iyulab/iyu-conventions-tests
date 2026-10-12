@@ -54,6 +54,29 @@ internal static class IlInspection
         }
     }
 
+    /// <summary>
+    /// The property setters a body calls (<c>set_X</c>, <c>init</c> accessors included), each paired with whether the value
+    /// comes straight from the same-named getter on the same type (<c>callvirt get_X</c> immediately followed by
+    /// <c>callvirt set_X</c>) — the copy <c>new Request { X = source.X }</c>, which carries a value rather than filling it.
+    /// </summary>
+    public static IEnumerable<(MethodBase Setter, bool CopiedFromSameProperty)> SetterCalls(MethodBase method, Module module)
+    {
+        var sites = Targets(method, module, Call, CallVirt).ToList();
+        var byOffset = sites.ToDictionary(site => site.Offset, site => site.Target);
+        foreach (var (offset, target) in sites)
+        {
+            if (!target.Name.StartsWith("set_", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var copied = byOffset.TryGetValue(offset - 5, out var previous)
+                && previous.DeclaringType == target.DeclaringType
+                && previous.Name == "get_" + target.Name[4..];
+            yield return (target, copied);
+        }
+    }
+
     /// <summary>Whether <paramref name="type"/> is <paramref name="container"/> or nested inside it.</summary>
     public static bool IsWithin(Type type, Type container)
     {
@@ -68,17 +91,6 @@ internal static class IlInspection
         return false;
     }
 
-    /// <summary>
-    /// A method that exists to produce another instance of the type it lives on: the compiler's record copy
-    /// method, or a method returning that type whose body creates one (a constructor call, the record copy
-    /// method, or <see cref="object.MemberwiseClone"/>). Reading a property in order to carry it into a new
-    /// instance is not consuming it.
-    /// </summary>
-    /// <remarks>
-    /// Judged by the body, not the name or the signature alone. A <c>WithRetries</c> that applies the option
-    /// is a real read; a fluent <c>Validate()</c> returning <c>this</c> has the same signature as a copy but
-    /// creates nothing, so its reads count.
-    /// </remarks>
     /// <summary>
     /// Validation <em>of</em> options, as opposed to a feature whose job is validating something else: a <c>Validate…</c>
     /// method declared by the options type itself (<paramref name="optionsType"/>, the type the method sits in), or any
@@ -109,6 +121,17 @@ internal static class IlInspection
         return (dot >= 0 ? name[(dot + 1)..] : name).StartsWith("Validate", StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A method that exists to produce another instance of the type it lives on: the compiler's record copy
+    /// method, or a method returning that type whose body creates one (a constructor call, the record copy
+    /// method, or <see cref="object.MemberwiseClone"/>). Reading a property in order to carry it into a new
+    /// instance is not consuming it.
+    /// </summary>
+    /// <remarks>
+    /// Judged by the body, not the name or the signature alone. A <c>WithRetries</c> that applies the option
+    /// is a real read; a fluent <c>Validate()</c> returning <c>this</c> has the same signature as a copy but
+    /// creates nothing, so its reads count.
+    /// </remarks>
     public static bool IsCopy(MethodBase method)
     {
         if (method.Name == "<Clone>$")

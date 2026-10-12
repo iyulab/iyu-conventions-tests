@@ -41,9 +41,26 @@ public static class OptionsReachability
     /// <see cref="OptionsTypes.NamedWith(string[])"/>, or any predicate the repository needs.
     /// </param>
     public static OptionsReachabilityReport Scan(IEnumerable<Assembly> assemblies, Func<Type, bool> isOptionsType)
+        => Scan(assemblies, isOptionsType, isValidation: static _ => false);
+
+    /// <summary>
+    /// Scans like <see cref="Scan(IEnumerable{Assembly}, Func{Type, bool})"/>, and also does not count reads made in
+    /// the methods <paramref name="isValidation"/> accepts.
+    /// </summary>
+    /// <param name="assemblies">Every assembly whose code may read the options.</param>
+    /// <param name="isOptionsType">Which public, non-abstract classes are options types.</param>
+    /// <param name="isValidation">
+    /// The repository's own validators: methods whose reads check a value rather than use it, beyond the ones the scan
+    /// already knows (an options type's own <c>Validate…</c>, an <c>IValidateOptions&lt;T&gt;</c>). A standalone validator
+    /// class is the usual case — <see cref="OptionsValidation.DeclaredIn(Type[])"/> accepts every method of the given
+    /// types, lambdas and local functions included. An option read only there is reported unread, like one nothing reads.
+    /// </param>
+    public static OptionsReachabilityReport Scan(
+        IEnumerable<Assembly> assemblies, Func<Type, bool> isOptionsType, Func<MethodBase, bool> isValidation)
     {
         ArgumentNullException.ThrowIfNull(assemblies);
         ArgumentNullException.ThrowIfNull(isOptionsType);
+        ArgumentNullException.ThrowIfNull(isValidation);
 
         var scanned = assemblies.Distinct().ToList();
         if (scanned.Count == 0)
@@ -89,7 +106,7 @@ public static class OptionsReachability
                 {
                     // An options type's own validation checks an option's value; it does not make the option take effect.
                     // Counting its reads let an option that nothing but Validate() looked at pass as honoured.
-                    if (IlInspection.IsOptionsValidation(method, owner))
+                    if (IlInspection.IsOptionsValidation(method, owner) || isValidation(method))
                     {
                         continue;
                     }
@@ -161,6 +178,26 @@ public static class OptionsReachability
         }
 
         return new OptionsReachabilityReport(optionTypes, unread, read, crossAssembly);
+    }
+}
+
+/// <summary>Ready-made validator predicates for <see cref="OptionsReachability.Scan(IEnumerable{Assembly}, Func{Type, bool}, Func{MethodBase, bool})"/>.</summary>
+public static class OptionsValidation
+{
+    /// <summary>
+    /// Accepts every method declared in one of <paramref name="validatorTypes"/> or in a type nested in one — the
+    /// compiler puts lambdas, local functions and iterator bodies there, and a validator's reads in them are its own.
+    /// </summary>
+    public static Func<MethodBase, bool> DeclaredIn(params Type[] validatorTypes)
+    {
+        ArgumentNullException.ThrowIfNull(validatorTypes);
+        if (validatorTypes.Length == 0)
+        {
+            throw new ArgumentException("At least one validator type is required.", nameof(validatorTypes));
+        }
+
+        var types = validatorTypes.ToArray();
+        return method => method.DeclaringType is { } declaring && types.Any(t => IlInspection.IsWithin(declaring, t));
     }
 }
 

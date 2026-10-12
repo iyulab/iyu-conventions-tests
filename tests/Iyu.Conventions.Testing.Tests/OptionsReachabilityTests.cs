@@ -22,8 +22,9 @@ public class OptionsReachabilityTests
         var report = OptionsReachability.Scan([Defective], Options);
 
         Assert.Equal(
-            [typeof(GadgetOptions), typeof(HolderOptions), typeof(ScoringOptions), typeof(ThingOptions), typeof(WidgetOptions)],
+            [typeof(GadgetOptions), typeof(GizmoOptions), typeof(HolderOptions), typeof(ScoringOptions), typeof(ThingOptions), typeof(WidgetOptions)],
             report.OptionTypes);
+        Assert.Empty(report.Unread[typeof(GizmoOptions).FullName!]);   // its checker is not named here, so its read counts
         Assert.Equal(["Ratio"], report.Unread[typeof(HolderOptions).FullName!]);
         Assert.Equal(["Unused"], report.Unread[typeof(WidgetOptions).FullName!]);
         Assert.Equal(["Label"], report.Unread[typeof(GadgetOptions).FullName!]);
@@ -56,6 +57,36 @@ public class OptionsReachabilityTests
         var report = OptionsReachability.Scan([Defective], Options);
 
         Assert.DoesNotContain($"{typeof(WidgetOptions).FullName}.{nameof(WidgetOptions.Unused)}", report.Read);
+    }
+
+    [Fact]
+    public void AStandaloneValidator_CountsAsARead_UnlessTheCallerNamesIt()
+    {
+        // The gap the predicate closes: a validator class that is not IValidateOptions<T> reads CheckedOnly, and
+        // without being told, the scan cannot tell that check from a use.
+        var key = $"{typeof(GizmoOptions).FullName}.{nameof(GizmoOptions.CheckedOnly)}";
+
+        var unnamed = OptionsReachability.Scan([Defective], Options);
+        Assert.Contains(key, unnamed.Read);
+
+        var named = OptionsReachability.Scan([Defective], Options, OptionsValidation.DeclaredIn(typeof(GizmoConfigurationChecker)));
+        Assert.DoesNotContain(key, named.Read);
+        Assert.Equal([nameof(GizmoOptions.CheckedOnly)], named.Unread[typeof(GizmoOptions).FullName!]);
+    }
+
+    [Fact]
+    public void NamingAValidator_KeepsReadsElsewhere()
+    {
+        // Gizmo reads Used; naming the checker must not hide a real use somewhere else.
+        var report = OptionsReachability.Scan([Defective], Options, OptionsValidation.DeclaredIn(typeof(GizmoConfigurationChecker)));
+
+        Assert.Contains($"{typeof(GizmoOptions).FullName}.{nameof(GizmoOptions.Used)}", report.Read);
+    }
+
+    [Fact]
+    public void DeclaredIn_RequiresAType()
+    {
+        Assert.Throws<ArgumentException>(() => OptionsValidation.DeclaredIn());
     }
 
     [Fact]
