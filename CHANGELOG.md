@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [0.8.0] - Unreleased
+## [0.8.0] - 2026-10-12
 
 ### Added
 - **New package `Iyu.Conventions.Testing.Snippets`: compiles the C# examples in a repository's Markdown.**
