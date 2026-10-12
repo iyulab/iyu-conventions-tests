@@ -11,7 +11,7 @@ dotnet add package Iyu.Conventions.Testing   # in the test project
 | Package | Purpose |
 |---|---|
 | `Iyu.Conventions.Testing` | Reflection and IL scans over the assemblies you pass, asserted from your own test project. Nothing to register: each check is a static `Scan` call inside a test. |
-| `Iyu.Conventions.Testing.Snippets` (from 0.8.0, not yet published) | Compiles the C# examples in your Markdown (README, docs) from your own test project, so an example that no longer matches the library fails a test. A separate package because it depends on `Microsoft.CodeAnalysis.CSharp`; the package above stays dependency-free. |
+| `Iyu.Conventions.Testing.Snippets` (from 0.8.0) | Compiles the C# examples in your Markdown (README, docs) from your own test project, so an example that no longer matches the library fails a test. A separate package because it depends on `Microsoft.CodeAnalysis.CSharp`; the package above stays dependency-free. |
 
 ## Features
 
