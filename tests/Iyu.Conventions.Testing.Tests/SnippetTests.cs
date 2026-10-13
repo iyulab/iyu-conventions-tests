@@ -10,6 +10,131 @@ namespace Iyu.Conventions.Testing.Tests;
 /// </summary>
 public class SnippetTests
 {
+    private const string Guide = """
+        # Guide
+
+        ## A handler
+
+        ```csharp
+        public sealed class RetryingHandler
+        {
+            public CleanService Create(CleanOptions options) => new(options.Validate());
+        }
+        ```
+
+        ## Using it
+
+        ```csharp
+        var handler = new RetryingHandler();
+        var service = handler.Create(options);
+        Console.WriteLine(service.Attempts);
+        ```
+        """;
+
+    [Fact]
+    public void CompileDocument_SeesATypeAnotherExampleDeclares()
+    {
+        var snippets = DocSnippets.Parse(Guide, "GUIDE.md");
+
+        // Alone, the second example does not compile: the handler is declared in the first.
+        Assert.NotEmpty(Compiler.Compile(snippets[1].Code));
+
+        var compiled = Compiler.CompileDocument(snippets);
+        Assert.All(snippets, s => Assert.Empty(compiled.ErrorsOf(s)));
+        Assert.Empty(compiled.SharedErrors);
+        compiled.ShouldCompile(snippets[1]);
+        Assert.Contains("CleanOptions options = new();", compiled.SourceOf(snippets[1]), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CompileDocument_ReportsAnErrorOnTheExampleThatHasIt()
+    {
+        var snippets = DocSnippets.Parse(Guide.Replace("handler.Create(options)", "handler.Build(options)", StringComparison.Ordinal), "GUIDE.md");
+
+        var compiled = Compiler.CompileDocument(snippets);
+
+        Assert.Empty(compiled.ErrorsOf(snippets[0]));
+        Assert.Contains(compiled.ErrorsOf(snippets[1]), e => e.Id == "CS1061");
+        Assert.Throws<SnippetException>(() => compiled.ShouldCompile(snippets[1]));
+    }
+
+    [Fact]
+    public void CompileDocument_DoesNotCarryALocalFromOneExampleToTheNext()
+    {
+        var snippets = DocSnippets.Parse("""
+            ```csharp
+            var count = 3;
+            ```
+
+            ```csharp
+            Console.WriteLine(count);
+            ```
+            """, "GUIDE.md");
+
+        var compiled = Compiler.CompileDocument(snippets);
+
+        Assert.Empty(compiled.ErrorsOf(snippets[0]));
+        Assert.Contains(compiled.ErrorsOf(snippets[1]), e => e.Id == "CS0103");
+    }
+
+    [Fact]
+    public void CompileDocument_AddsATypeStandInOnce_AndNotWhenTheDocumentDeclaresTheType()
+    {
+        var compiler = new SnippetCompiler(SnippetCompiler.ReferencesFor(typeof(CleanService).Assembly))
+        {
+            Usings = ["System", "Iyu.Conventions.Testing.Fixtures.Clean"],
+            StandIns = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["MyModel"] = "sealed class MyModel { public CleanOptions Options { get; } = new(); }",
+            },
+        };
+        var twoUses = DocSnippets.Parse("""
+            ```csharp
+            var a = new CleanService(new MyModel().Options);
+            ```
+
+            ```csharp
+            var b = new CleanService(new MyModel().Options);
+            ```
+            """, "GUIDE.md");
+
+        var compiled = compiler.CompileDocument(twoUses);
+        Assert.All(twoUses, s => Assert.Empty(compiled.ErrorsOf(s)));
+        Assert.Empty(compiled.SharedErrors);
+
+        // The document declares MyModel itself: the stand-in would collide with it, so it is not added.
+        var declared = DocSnippets.Parse("""
+            ```csharp
+            public sealed class MyModel { public CleanOptions Options { get; } = new(); }
+            ```
+
+            ```csharp
+            var a = new CleanService(new MyModel().Options);
+            ```
+            """, "GUIDE.md");
+        var own = compiler.CompileDocument(declared);
+        Assert.All(declared, s => Assert.Empty(own.ErrorsOf(s)));
+        Assert.Empty(own.SharedErrors);
+    }
+
+    [Fact]
+    public void CompileDocument_ReportsTwoExamplesThatDeclareTheSameType()
+    {
+        var snippets = DocSnippets.Parse("""
+            ```csharp
+            public sealed class Tools { }
+            ```
+
+            ```csharp
+            public sealed class Tools { public int Count => 1; }
+            ```
+            """, "GUIDE.md");
+
+        var compiled = Compiler.CompileDocument(snippets);
+
+        Assert.Contains(snippets, s => compiled.ErrorsOf(s).Any(e => e.Id == "CS0101"));
+    }
+
     private static readonly SnippetCompiler Compiler = new(SnippetCompiler.ReferencesFor(typeof(CleanService).Assembly))
     {
         Usings = ["System", "System.Collections.Generic", "System.Linq", "System.Threading.Tasks", "Iyu.Conventions.Testing.Fixtures.Clean"],

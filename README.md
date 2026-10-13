@@ -214,6 +214,19 @@ public class ReadmeSnippetTests
 
   It compiles with Roslyn against the references you give. An example with no statements compiles as a library. Every
   error-severity diagnostic fails; warnings do not. `Program(code)` returns the assembled source for a failure message.
+- `SnippetCompiler.CompileDocument(snippets)` (from 0.11.0) compiles the examples of one document together, for a guide
+  that declares a type in one example and uses it in another. Each example is its own source file, with its usings, its
+  types and its statements in a method of their own: a type is visible to every example, but a local is not. Value
+  stand-ins are added per example; a type stand-in is added once, and only when no example declares that type. Read the
+  result with `ErrorsOf(snippet)` / `ShouldCompile(snippet)` per example and `ShouldHaveNoSharedErrors()` once:
+
+  ```csharp
+  private static readonly DocumentCompilation Guide = Compiler.CompileDocument(DocSnippets.Read(GuidePath, "docs/GUIDE.md"));
+
+  [Theory]
+  [MemberData(nameof(GuideKeys))]
+  public void GuideExample_Compiles(string key) => Guide.ShouldCompile(GuideSnippets.Single(s => s.Key == key));
+  ```
 - `SnippetRoster.ShouldMatch(snippets, atLeast)` fails when the documents have fewer examples than the floor (a reader that
   silently finds nothing), or when a listed heading has no example (a stale entry).
 

@@ -90,44 +90,16 @@ public sealed class SnippetCompiler
     {
         ArgumentNullException.ThrowIfNull(code);
         var root = Parse(code);
-        var stated = root.Usings.Select(u => u.ToString().Trim()).ToList();
-        var statedNames = root.Usings.Where(u => u.Alias is null && u.StaticKeyword.IsKind(SyntaxKind.None))
-            .Select(u => u.NamespaceOrType.ToString())
-            .ToHashSet(StringComparer.Ordinal);
-
         var statements = root.Members.OfType<GlobalStatementSyntax>().Select(s => s.ToFullString()).ToList();
         var declarations = root.Members.Where(m => m is not GlobalStatementSyntax).Select(m => m.ToFullString()).ToList();
         var body = string.Concat(statements);
         var typeKeys = StandIns.Where(s => IsTypeDeclaration(s.Value)).Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
         var standIns = UndeclaredNames(body, StandIns.Keys.Where(k => !typeKeys.Contains(k))).Select(name => StandIns[name]).ToList();
 
-        // A type stand-in is needed when the example names the type, when a value stand-in that was added declares a value
-        // of it (`ChatModel llm = new();`), or when another type stand-in that was added uses it — until nothing new is named.
-        var typeStandIns = new List<string>();
-        var named = string.Concat(standIns) + body + string.Concat(declarations);
-        while (true)
-        {
-            var added = UndeclaredNames(named, typeKeys).Select(name => StandIns[name]).Where(d => !typeStandIns.Contains(d)).ToList();
-            if (added.Count == 0)
-            {
-                break;
-            }
-
-            typeStandIns.AddRange(added);
-            named += string.Concat(added);
-        }
+        var typeStandIns = TypeStandIns(string.Concat(standIns) + body + string.Concat(declarations), typeKeys);
 
         var source = new StringBuilder();
-        foreach (var directive in stated)
-        {
-            source.AppendLine(directive);
-        }
-
-        foreach (var name in Usings.Where(n => !statedNames.Contains(n)))
-        {
-            source.Append("using ").Append(name).AppendLine(";");
-        }
-
+        AppendUsings(source, root);
         foreach (var declaration in standIns)
         {
             source.AppendLine(declaration);
@@ -173,6 +145,130 @@ public sealed class SnippetCompiler
         throw new SnippetException(
             $"{snippet.Key} does not compile against the current library:\n" +
             string.Join("\n", errors.Select(e => e.ToString())) + "\n--- compiled as ---\n" + Program(snippet.Code));
+    }
+
+    /// <summary>
+    /// Compiles the examples of one document together, the way a reader assembles a guide: a type one example declares is
+    /// visible to every other, so a later example may register the handler an earlier one wrote.
+    /// </summary>
+    /// <remarks>
+    /// Each example is a source file of its own: its <c>using</c> directives and <see cref="Usings"/>, the types it declares,
+    /// and its statements as the body of a method of their own — a local one example declares is not visible in the next,
+    /// since the text cannot rely on it either — preceded by the value <see cref="StandIns"/> it uses. A type stand-in is
+    /// added once for the document, when an example uses the name and no example declares a type of that name.
+    /// </remarks>
+    /// <param name="snippets">The examples of one document, in order. Their <see cref="DocSnippet.Key"/>s must differ.</param>
+    public DocumentCompilation CompileDocument(IReadOnlyList<DocSnippet> snippets)
+    {
+        ArgumentNullException.ThrowIfNull(snippets);
+        var duplicate = snippets.GroupBy(s => s.Key, StringComparer.Ordinal).FirstOrDefault(g => g.Count() > 1);
+        if (duplicate is not null)
+        {
+            throw new ArgumentException($"Two examples share the key '{duplicate.Key}'.", nameof(snippets));
+        }
+
+        var typeKeys = StandIns.Where(s => IsTypeDeclaration(s.Value)).Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
+        var valueKeys = StandIns.Keys.Where(k => !typeKeys.Contains(k)).ToList();
+        var declaredTypes = snippets
+            .SelectMany(s => Parse(s.Code).DescendantNodes().OfType<BaseTypeDeclarationSyntax>().Select(t => t.Identifier.Text))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var sources = new Dictionary<string, string>(StringComparer.Ordinal);
+        var named = new StringBuilder();
+        for (var i = 0; i < snippets.Count; i++)
+        {
+            var root = Parse(snippets[i].Code);
+            var body = string.Concat(root.Members.OfType<GlobalStatementSyntax>().Select(s => s.ToFullString()));
+            var declarations = string.Concat(root.Members.Where(m => m is not GlobalStatementSyntax).Select(m => m.ToFullString()));
+            var standIns = UndeclaredNames(body, valueKeys).Select(name => StandIns[name]).ToList();
+            named.Append(string.Concat(standIns)).Append(body).Append(declarations);
+
+            var source = new StringBuilder();
+            AppendUsings(source, root);
+            source.Append(declarations).AppendLine();
+            if (body.Length > 0)
+            {
+                source.Append("internal static class DocumentExample").Append(i).AppendLine()
+                    .AppendLine("{")
+                    .AppendLine("    internal static async System.Threading.Tasks.Task RunAsync()")
+                    .AppendLine("    {");
+                foreach (var declaration in standIns)
+                {
+                    source.AppendLine(declaration);
+                }
+
+                source.Append(body).AppendLine()
+                    .AppendLine("        await System.Threading.Tasks.Task.CompletedTask;")
+                    .AppendLine("    }")
+                    .AppendLine("}");
+            }
+
+            sources[snippets[i].Key] = source.ToString();
+        }
+
+        // Type stand-ins the examples (or the stand-ins they pulled in) name and the document does not declare itself.
+        var typeStandIns = TypeStandIns(named.ToString(), typeKeys.Where(k => !declaredTypes.Contains(k)).ToList());
+
+        var parse = new CSharpParseOptions(LanguageVersion.Latest);
+        var trees = sources.Select(s => CSharpSyntaxTree.ParseText(s.Value, parse, path: s.Key)).ToList();
+        if (typeStandIns.Count > 0)
+        {
+            var standInSource = new StringBuilder();
+            AppendUsings(standInSource, Parse(""));
+            foreach (var declaration in typeStandIns)
+            {
+                standInSource.AppendLine(declaration);
+            }
+
+            trees.Add(CSharpSyntaxTree.ParseText(standInSource.ToString(), parse, path: DocumentCompilation.StandInsPath));
+        }
+
+        var compilation = CSharpCompilation.Create(
+            "DocSnippets",
+            trees,
+            _references,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: Nullable ? NullableContextOptions.Enable : NullableContextOptions.Disable));
+        var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        return new DocumentCompilation(sources, errors);
+    }
+
+    /// <summary>
+    /// The type stand-ins <paramref name="named"/> uses, and the ones those use: a type stand-in is needed when the example
+    /// names the type, when a value stand-in that was added declares a value of it (<c>ChatModel llm = new();</c>), or when
+    /// another type stand-in that was added uses it — until nothing new is named.
+    /// </summary>
+    private List<string> TypeStandIns(string named, IReadOnlyCollection<string> candidates)
+    {
+        var typeStandIns = new List<string>();
+        while (true)
+        {
+            var added = UndeclaredNames(named, candidates).Select(name => StandIns[name]).Where(d => !typeStandIns.Contains(d)).ToList();
+            if (added.Count == 0)
+            {
+                return typeStandIns;
+            }
+
+            typeStandIns.AddRange(added);
+            named += string.Concat(added);
+        }
+    }
+
+    private void AppendUsings(StringBuilder source, CompilationUnitSyntax root)
+    {
+        var statedNames = root.Usings.Where(u => u.Alias is null && u.StaticKeyword.IsKind(SyntaxKind.None))
+            .Select(u => u.NamespaceOrType.ToString())
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var directive in root.Usings)
+        {
+            source.AppendLine(directive.ToString().Trim());
+        }
+
+        foreach (var name in Usings.Where(n => !statedNames.Contains(n)))
+        {
+            source.Append("using ").Append(name).AppendLine(";");
+        }
     }
 
     private static CompilationUnitSyntax Parse(string code) =>

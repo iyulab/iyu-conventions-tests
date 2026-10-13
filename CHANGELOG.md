@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [Unreleased]
+
+### Added
+- **A document's examples can be compiled together.** `SnippetCompiler.CompileDocument(snippets)` returns a
+  `DocumentCompilation`. A type one example declares is visible to the others, so a guide that writes a handler in one
+  example and registers it in the next compiles. Each example's statements run in a method of their own, so a local
+  does not leak from one example to the next. Errors are reported per example (`ErrorsOf`, `ShouldCompile`); errors that
+  belong to no example are reported by `SharedErrors` and `ShouldHaveNoSharedErrors`.
+
 ## [0.10.1] - 2026-10-13
 
 ### Fixed
