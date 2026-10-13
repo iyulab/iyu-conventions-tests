@@ -99,8 +99,23 @@ public sealed class SnippetCompiler
         var declarations = root.Members.Where(m => m is not GlobalStatementSyntax).Select(m => m.ToFullString()).ToList();
         var body = string.Concat(statements);
         var typeKeys = StandIns.Where(s => IsTypeDeclaration(s.Value)).Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
-        var standIns = UndeclaredNames(body, StandIns.Keys.Where(k => !typeKeys.Contains(k))).Select(name => StandIns[name]);
-        var typeStandIns = UndeclaredNames(body + string.Concat(declarations), typeKeys).Select(name => StandIns[name]);
+        var standIns = UndeclaredNames(body, StandIns.Keys.Where(k => !typeKeys.Contains(k))).Select(name => StandIns[name]).ToList();
+
+        // A type stand-in is needed when the example names the type, when a value stand-in that was added declares a value
+        // of it (`ChatModel llm = new();`), or when another type stand-in that was added uses it — until nothing new is named.
+        var typeStandIns = new List<string>();
+        var named = string.Concat(standIns) + body + string.Concat(declarations);
+        while (true)
+        {
+            var added = UndeclaredNames(named, typeKeys).Select(name => StandIns[name]).Where(d => !typeStandIns.Contains(d)).ToList();
+            if (added.Count == 0)
+            {
+                break;
+            }
+
+            typeStandIns.AddRange(added);
+            named += string.Concat(added);
+        }
 
         var source = new StringBuilder();
         foreach (var directive in stated)

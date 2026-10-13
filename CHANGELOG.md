@@ -3,6 +3,13 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [Unreleased]
+
+### Fixed
+- **A type stand-in named only by another stand-in is declared.** When an example uses `llm` and the value stand-in is
+  `ChatModel llm = new();`, the type stand-in `ChatModel` is now added too; so is a type stand-in that another added type
+  stand-in uses. Before, only a type the example itself named was added, and such an example failed with CS0246.
+
 ## [0.10.0] - 2026-10-13
 
 ### Added

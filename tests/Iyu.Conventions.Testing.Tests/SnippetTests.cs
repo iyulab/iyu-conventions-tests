@@ -193,6 +193,33 @@ public class SnippetTests
         Assert.Empty(compiler.Compile(declares));
     }
 
+    // The type may be named only by another stand-in: a value stand-in that declares a value of it (`MyModel model = new();`
+    // for an example that just uses `model`), or a type stand-in that uses it. The copies this kit replaced handled the first
+    // (an example used `llm`, whose stand-in is `ChatModel llm = new();`, and needed `class ChatModel`).
+    [Fact]
+    public void TypeStandIn_IsDeclared_WhenOnlyAnotherStandInNamesIt()
+    {
+        var compiler = new SnippetCompiler(SnippetCompiler.ReferencesFor(typeof(CleanService).Assembly))
+        {
+            Usings = ["System", "Iyu.Conventions.Testing.Fixtures.Clean"],
+            StandIns = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["model"] = "MyModel model = new();",
+                ["MyModel"] = "sealed class MyModel { public MyOptions Options { get; } = new(); }",
+                ["MyOptions"] = "sealed class MyOptions { public CleanOptions Build() => new(); }",
+            },
+        };
+
+        const string example = "var service = new CleanService(model.Options.Build());";
+        var program = compiler.Program(example);
+        Assert.Contains("sealed class MyModel", program, StringComparison.Ordinal);
+        Assert.Contains("sealed class MyOptions", program, StringComparison.Ordinal);
+        Assert.Empty(compiler.Compile(example));
+
+        // Nothing names them: neither is added.
+        Assert.DoesNotContain("class MyModel", compiler.Program("var n = 1;"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Program_KeepsTheExamplesOwnUsings_AndDoesNotRepeatThem()
     {
