@@ -68,11 +68,22 @@ public sealed class SnippetCompiler
     /// Whether an example that only restates library types — a listing of an interface, an options class or an enum, the
     /// way guides show a type's shape — is checked member by member against the real type instead of compiled: a listed
     /// member the type does not declare is <c>LISTING001</c>, one it declares with another signature (return and parameter
-    /// types; nullability not distinguished) is <c>LISTING002</c>, and a listing that matches a type in two visible
+    /// types, parameter names, a property's public accessors and <c>required</c>; nullability not distinguished) is
+    /// <c>LISTING002</c>, and a listing that matches a type in two visible
     /// namespaces is <c>LISTING003</c>. Compiled, a listing declares a second type of that name and checks only its syntax.
     /// An example whose class members have bodies is a sample, not a listing, and is compiled. Default: false.
     /// </summary>
     public bool CheckListings { get; init; }
+
+    /// <summary>
+    /// With <see cref="CheckListings"/>, for documents whose type-only examples are all API references (a README's API
+    /// section): every example that only declares types without bodies must restate a library type of the same kind — one
+    /// that names a type no visible namespace exports, or calls a record a class, an interface a class (and so on), is
+    /// <c>LISTING004</c> instead of being compiled as a sample — and a listed method's parameter names must be the type's
+    /// (<c>LISTING002</c>). Leave it off where examples also declare the reader's own bodiless types, or shorten parameter
+    /// names (<c>ct</c>). Default: false.
+    /// </summary>
+    public bool StrictListings { get; init; }
 
     /// <summary>The platform assemblies plus <paramref name="assemblies"/> and everything they have loaded so far.</summary>
     public static IReadOnlyList<MetadataReference> ReferencesFor(params Assembly[] assemblies)
@@ -264,7 +275,7 @@ public sealed class SnippetCompiler
         {
             if (ListingOf(snippet.Code, snippet.Key) is { } listed)
             {
-                listedTypes += listed.Count;
+                listedTypes += listed.Types.Count;
                 sources[snippet.Key] = snippet.Code;
                 errors.AddRange(TypeListings.Check(listed));
                 continue;
@@ -323,7 +334,7 @@ public sealed class SnippetCompiler
     }
 
     /// <summary>The types <paramref name="code"/> lists, when <see cref="CheckListings"/> is on and the example is a listing.</summary>
-    private List<(BaseTypeDeclarationSyntax Declaration, List<INamedTypeSymbol> Candidates)>? ListingOf(string code, string path)
+    private TypeListings.Listing? ListingOf(string code, string path)
     {
         if (!CheckListings)
         {
@@ -331,7 +342,7 @@ public sealed class SnippetCompiler
         }
 
         var tree = CSharpSyntaxTree.ParseText(code, new CSharpParseOptions(LanguageVersion.Latest), path: path);
-        return TypeListings.Listed(tree.GetCompilationUnitRoot(), Usings, _library.Value);
+        return TypeListings.Listed(tree.GetCompilationUnitRoot(), Usings, _library.Value, StrictListings);
     }
 
     private void AppendUsings(StringBuilder source, CompilationUnitSyntax root)

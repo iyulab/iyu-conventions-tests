@@ -233,8 +233,14 @@ public class ReadmeSnippetTests
   example that only restates library types — an interface, an options class or an enum shown with its members, no bodies.
   Compiled, it declares a second type of that name and checks nothing about the real one.
   - Each listed member is looked up on the library type (its base classes, or the interfaces it extends): a member the type
-    does not declare is `LISTING001`, one with another return or parameter type is `LISTING002` (nullability not
-    distinguished), and a listing that matches a type in two visible namespaces is `LISTING003`.
+    does not declare is `LISTING001`; one with another signature is `LISTING002` — return and parameter types, and for a
+    property its public accessors (`get` / `set` / `init`) and `required` (nullability not distinguished);
+    a listing that matches a type in two visible namespaces is `LISTING003`. A record and a class are different kinds.
+  - `StrictListings = true` (from 0.13.0, with `CheckListings`) is for documents whose type-only examples are all API
+    references: every example that only declares types without bodies must restate a library type — one that names a type
+    no visible namespace exports, or lists a type as another kind (a record as a class), is `LISTING004` instead of
+    compiling as the reader's own type — and a listed method's parameter names must be the type's (`LISTING002`). Leave it
+    off where examples also declare the reader's own bodiless types or shorten parameter names (`ct`).
   - An example whose class members have bodies is a sample, and is compiled as before.
   - `DocumentCompilation.ListedTypes` counts the types checked this way, so a floor shows the listings are still recognised.
   - Off by default: turning it on in a repository whose guides already have listings reports every drifted member at once.

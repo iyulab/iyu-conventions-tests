@@ -90,6 +90,69 @@ public class TypeListingTests
         Assert.Equal("LISTING002", Assert.Single(errors).Id);
     }
 
+    [Theory]
+    // CleanOptions.Retries is { get; set; }: a listing that shows init (or get only) tells the reader something else.
+    [InlineData("public class CleanOptions { public int Retries { get; init; } }")]
+    [InlineData("public class CleanOptions { public int Retries { get; } }")]
+    // CleanRequest.Model is not required.
+    [InlineData("public record CleanRequest { public required string Model { get; init; } }")]
+    public void AnAccessorOrRequiredTheTypeDoesNotHave_IsListing002(string listing)
+    {
+        Assert.Equal("LISTING002", Assert.Single(Checking.Compile(listing)).Id);
+    }
+
+    [Fact]
+    public void ARecordWithInitAccessors_ListedAsItIs_HasNoErrors()
+    {
+        Assert.Empty(Checking.Compile("""
+            public record CleanRequest
+            {
+                public string Model { get; init; }
+                public int MaxTokens { get; init; }
+            }
+            """));
+    }
+
+    private static readonly SnippetCompiler Strict = new(SnippetCompiler.ReferencesFor(typeof(CleanService).Assembly))
+    {
+        Usings = ["System", "System.Collections.Generic", "System.Threading", "System.Threading.Tasks", "Iyu.Conventions.Testing.Fixtures.Clean"],
+        CheckListings = true,
+        StrictListings = true,
+    };
+
+    [Theory]
+    // A type the library does not export.
+    [InlineData("public record CleanResponse { public string Url { get; init; } }", "no namespace")]
+    // CleanRequest is a record, CleanOptions a class: listed as the other kind.
+    [InlineData("public class CleanRequest { public string Model { get; init; } }", "is a record")]
+    [InlineData("public record CleanOptions { public int Retries { get; set; } }", "is a class")]
+    public void WhenStrictListings_ATypeOnlyBlockThatDoesNot_IsListing004(string listing, string says)
+    {
+        var error = Assert.Single(Strict.Compile(listing));
+
+        Assert.Equal("LISTING004", error.Id);
+        Assert.Contains(says, error.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        // Without the option the same block is the reader's own type: compiled as a sample, and it compiles.
+        Assert.Empty(Checking.Compile(listing));
+    }
+
+    [Fact]
+    public void WhenStrictListings_AParameterUnderAnotherName_IsListing002_AndNotByDefault()
+    {
+        // The parameter is url, not address: a reader passing it by name gets a compile error. A guide may shorten names
+        // (ct for cancellationToken), so only a strict listing compares them.
+        const string listing = "public sealed class CleanClient { public Task<string> GetAsync(string address, CancellationToken ct = default); }";
+
+        Assert.Equal("LISTING002", Assert.Single(Strict.Compile(listing)).Id);
+        Assert.Empty(Checking.Compile(listing));
+    }
+
+    [Fact]
+    public void WhenStrictListings_ACorrectListing_StillHasNoErrors()
+    {
+        Assert.Empty(Strict.Compile("public class CleanOptions { public int Retries { get; set; } }"));
+    }
+
     [Fact]
     public void AListingThatMatchesTwoVisibleTypes_IsListing003()
     {

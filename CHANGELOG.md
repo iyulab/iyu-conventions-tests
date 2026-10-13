@@ -3,6 +3,21 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [Unreleased]
+
+### Changed
+- **Breaking: a listed property states what a reader can do with it.** `LISTING002` now also compares a property's public
+  accessors (`get` / `set` / `init`) and `required`, and a record and a class are different kinds. A listing that showed
+  `{ get; init; }` for a settable property (or left out `required`) passed before and now fails. Migration: write the
+  property as the type declares it; a listing that calls a record `class` (or the reverse) is no longer recognised as a
+  listing — use the type's kind.
+
+### Added
+- **`SnippetCompiler.StrictListings`** (opt-in, with `CheckListings`) for documents whose type-only examples are all API
+  references: an example that only declares types without bodies must restate a library type — one that names a type no
+  visible namespace exports, or lists it as another kind, is `LISTING004` (without it, such an example compiles as the
+  reader's own type and checks nothing) — and a listed method's parameter names must be the type's (`LISTING002`).
+
 ## [0.12.0] - 2026-10-13
 
 ### Added
