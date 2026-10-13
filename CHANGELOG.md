@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [0.12.0] - Unreleased
+## [0.12.0] - 2026-10-13
 
 ### Added
 - **A listing is checked against the real type.** With `SnippetCompiler.CheckListings = true`, an example that only restates
