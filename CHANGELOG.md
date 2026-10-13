@@ -3,6 +3,16 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [0.12.0] - Unreleased
+
+### Added
+- **A listing is checked against the real type.** With `SnippetCompiler.CheckListings = true`, an example that only restates
+  library types (an interface, an options class or an enum with its members and no bodies) is no longer compiled, which
+  checked only its syntax. Each listed member is looked up on the real type: a member the type does not declare is
+  `LISTING001`, one with another signature is `LISTING002`, and a listing that matches a type in two visible namespaces is
+  `LISTING003`. This works in `Compile`/`ShouldCompile` and in `CompileDocument`. `DocumentCompilation.ListedTypes` counts
+  the types checked this way. The option is off by default.
+
 ## [0.11.0] - 2026-10-13
 
 ### Added

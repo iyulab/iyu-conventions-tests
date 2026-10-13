@@ -14,11 +14,18 @@ public sealed class DocumentCompilation
     private readonly IReadOnlyDictionary<string, string> _sources;
     private readonly IReadOnlyList<Diagnostic> _errors;
 
-    internal DocumentCompilation(IReadOnlyDictionary<string, string> sources, IReadOnlyList<Diagnostic> errors)
+    internal DocumentCompilation(IReadOnlyDictionary<string, string> sources, IReadOnlyList<Diagnostic> errors, int listedTypes)
     {
         _sources = sources;
         _errors = errors;
+        ListedTypes = listedTypes;
     }
+
+    /// <summary>
+    /// How many library types the document's listings restate and were checked member by member
+    /// (<see cref="SnippetCompiler.CheckListings"/>) — a floor on it shows the listings are still recognised as listings.
+    /// </summary>
+    public int ListedTypes { get; }
 
     /// <summary>Errors outside every example — in the document's type stand-ins, or with no source location.</summary>
     public IReadOnlyList<Diagnostic> SharedErrors =>

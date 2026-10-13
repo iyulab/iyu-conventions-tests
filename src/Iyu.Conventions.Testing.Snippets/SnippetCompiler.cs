@@ -27,6 +27,7 @@ namespace Iyu.Conventions.Testing.Snippets;
 public sealed class SnippetCompiler
 {
     private readonly IReadOnlyList<MetadataReference> _references;
+    private readonly Lazy<CSharpCompilation> _library;
 
     /// <summary>Creates a compiler that references <paramref name="references"/>.</summary>
     /// <param name="references">
@@ -41,6 +42,8 @@ public sealed class SnippetCompiler
         {
             throw new ArgumentException("At least one reference is required; an empty set compiles nothing.", nameof(references));
         }
+
+        _library = new(() => CSharpCompilation.Create("References", references: _references));
     }
 
     /// <summary>
@@ -60,6 +63,16 @@ public sealed class SnippetCompiler
 
     /// <summary>Whether the program compiles with nullable reference types enabled. Default: true.</summary>
     public bool Nullable { get; init; } = true;
+
+    /// <summary>
+    /// Whether an example that only restates library types — a listing of an interface, an options class or an enum, the
+    /// way guides show a type's shape — is checked member by member against the real type instead of compiled: a listed
+    /// member the type does not declare is <c>LISTING001</c>, one it declares with another signature (return and parameter
+    /// types; nullability not distinguished) is <c>LISTING002</c>, and a listing that matches a type in two visible
+    /// namespaces is <c>LISTING003</c>. Compiled, a listing declares a second type of that name and checks only its syntax.
+    /// An example whose class members have bodies is a sample, not a listing, and is compiled. Default: false.
+    /// </summary>
+    public bool CheckListings { get; init; }
 
     /// <summary>The platform assemblies plus <paramref name="assemblies"/> and everything they have loaded so far.</summary>
     public static IReadOnlyList<MetadataReference> ReferencesFor(params Assembly[] assemblies)
@@ -120,6 +133,11 @@ public sealed class SnippetCompiler
 
     private List<Diagnostic> Compile(string code, string path)
     {
+        if (ListingOf(code, path) is { } listed)
+        {
+            return [.. TypeListings.Check(listed)];
+        }
+
         var tree = CSharpSyntaxTree.ParseText(Program(code), new CSharpParseOptions(LanguageVersion.Latest), path: path);
         var isLibrary = !tree.GetCompilationUnitRoot().Members.OfType<GlobalStatementSyntax>().Any();
         var compilation = CSharpCompilation.Create(
@@ -176,7 +194,7 @@ public sealed class SnippetCompiler
 
         var typeKeys = StandIns.Where(s => IsTypeDeclaration(s.Value)).Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
         var valueKeys = StandIns.Keys.Where(k => !typeKeys.Contains(k)).ToList();
-        var library = CSharpCompilation.Create("References", references: _references);
+        var library = _library.Value;
         var standalone = snippets.Where(s => RestatesALibraryType(Parse(s.Code), library)).ToHashSet();
         var shared = snippets.Where(s => !standalone.Contains(s)).ToList();
         var declaredTypes = shared
@@ -241,13 +259,22 @@ public sealed class SnippetCompiler
                 OutputKind.DynamicallyLinkedLibrary,
                 nullableContextOptions: Nullable ? NullableContextOptions.Enable : NullableContextOptions.Disable));
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        var listedTypes = 0;
         foreach (var snippet in standalone)
         {
+            if (ListingOf(snippet.Code, snippet.Key) is { } listed)
+            {
+                listedTypes += listed.Count;
+                sources[snippet.Key] = snippet.Code;
+                errors.AddRange(TypeListings.Check(listed));
+                continue;
+            }
+
             sources[snippet.Key] = Program(snippet.Code);
             errors.AddRange(Compile(snippet.Code, snippet.Key));
         }
 
-        return new DocumentCompilation(sources, errors);
+        return new DocumentCompilation(sources, errors, listedTypes);
     }
 
     /// <summary>
@@ -293,6 +320,18 @@ public sealed class SnippetCompiler
         }
 
         return false;
+    }
+
+    /// <summary>The types <paramref name="code"/> lists, when <see cref="CheckListings"/> is on and the example is a listing.</summary>
+    private List<(BaseTypeDeclarationSyntax Declaration, List<INamedTypeSymbol> Candidates)>? ListingOf(string code, string path)
+    {
+        if (!CheckListings)
+        {
+            return null;
+        }
+
+        var tree = CSharpSyntaxTree.ParseText(code, new CSharpParseOptions(LanguageVersion.Latest), path: path);
+        return TypeListings.Listed(tree.GetCompilationUnitRoot(), Usings, _library.Value);
     }
 
     private void AppendUsings(StringBuilder source, CompilationUnitSyntax root)

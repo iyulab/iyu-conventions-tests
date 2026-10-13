@@ -229,6 +229,15 @@ public class ReadmeSnippetTests
   [MemberData(nameof(GuideKeys))]
   public void GuideExample_Compiles(string key) => Guide.ShouldCompile(GuideSnippets.Single(s => s.Key == key));
   ```
+- `CheckListings = true` (from 0.12.0) checks a listing against the real type instead of compiling it. A listing is an
+  example that only restates library types — an interface, an options class or an enum shown with its members, no bodies.
+  Compiled, it declares a second type of that name and checks nothing about the real one.
+  - Each listed member is looked up on the library type (its base classes, or the interfaces it extends): a member the type
+    does not declare is `LISTING001`, one with another return or parameter type is `LISTING002` (nullability not
+    distinguished), and a listing that matches a type in two visible namespaces is `LISTING003`.
+  - An example whose class members have bodies is a sample, and is compiled as before.
+  - `DocumentCompilation.ListedTypes` counts the types checked this way, so a floor shows the listings are still recognised.
+  - Off by default: turning it on in a repository whose guides already have listings reports every drifted member at once.
 - `SnippetRoster.ShouldMatch(snippets, atLeast)` fails when the documents have fewer examples than the floor (a reader that
   silently finds nothing), or when a listed heading has no example (a stale entry).
 
