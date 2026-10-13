@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [Unreleased]
+## [0.11.0] - 2026-10-13
 
 ### Added
 - **A document's examples can be compiled together.** `SnippetCompiler.CompileDocument(snippets)` returns a
