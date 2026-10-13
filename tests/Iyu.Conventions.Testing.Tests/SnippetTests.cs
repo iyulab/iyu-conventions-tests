@@ -118,6 +118,41 @@ public class SnippetTests
     }
 
     [Fact]
+    public void CompileDocument_CompilesAListingOfALibraryTypeAlone_SoItDoesNotHideTheType()
+    {
+        // The guide shows CleanOptions as a listing, then uses the real one. Shared with the document, the listing's
+        // CleanOptions (no Validate) would hide the library's and the second example would fail.
+        var snippets = DocSnippets.Parse("""
+            ```csharp
+            public class CleanOptions
+            {
+                public int Retries { get; set; }
+            }
+            ```
+
+            ```csharp
+            var service = new CleanService(new CleanOptions { Retries = 2 }.Validate());
+            ```
+            """, "GUIDE.md");
+
+        var compiled = Compiler.CompileDocument(snippets);
+
+        Assert.All(snippets, s => Assert.Empty(compiled.ErrorsOf(s)));
+        Assert.Empty(compiled.SharedErrors);
+
+        // Compiled alone, the listing is still checked: a member of a type that does not exist fails it.
+        var broken = DocSnippets.Parse("""
+            ```csharp
+            public class CleanOptions
+            {
+                public NoSuchType Retries { get; set; }
+            }
+            ```
+            """, "GUIDE.md");
+        Assert.Contains(Compiler.CompileDocument(broken).ErrorsOf(broken[0]), e => e.Id == "CS0246");
+    }
+
+    [Fact]
     public void CompileDocument_ReportsTwoExamplesThatDeclareTheSameType()
     {
         var snippets = DocSnippets.Parse("""

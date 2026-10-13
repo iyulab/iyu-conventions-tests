@@ -217,7 +217,9 @@ public class ReadmeSnippetTests
 - `SnippetCompiler.CompileDocument(snippets)` (from 0.11.0) compiles the examples of one document together, for a guide
   that declares a type in one example and uses it in another. Each example is its own source file, with its usings, its
   types and its statements in a method of their own: a type is visible to every example, but a local is not. Value
-  stand-ins are added per example; a type stand-in is added once, and only when no example declares that type. Read the
+  stand-ins are added per example; a type stand-in is added once, and only when no example declares that type. An example
+  that declares a type the library already offers under that name (a listing) compiles on its own, so it cannot hide the
+  library's type from the other examples. Read the
   result with `ErrorsOf(snippet)` / `ShouldCompile(snippet)` per example and `ShouldHaveNoSharedErrors()` once:
 
   ```csharp

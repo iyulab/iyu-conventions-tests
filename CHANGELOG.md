@@ -10,7 +10,9 @@ Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
   `DocumentCompilation`. A type one example declares is visible to the others, so a guide that writes a handler in one
   example and registers it in the next compiles. Each example's statements run in a method of their own, so a local
   does not leak from one example to the next. Errors are reported per example (`ErrorsOf`, `ShouldCompile`); errors that
-  belong to no example are reported by `SharedErrors` and `ShouldHaveNoSharedErrors`.
+  belong to no example are reported by `SharedErrors` and `ShouldHaveNoSharedErrors`. An example that restates a library
+  type (a listing of an interface or an options class) is compiled on its own: shared, it would hide the library's type
+  from the rest of the document.
 
 ## [0.10.1] - 2026-10-13
 

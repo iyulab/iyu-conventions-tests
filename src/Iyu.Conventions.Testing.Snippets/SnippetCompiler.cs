@@ -116,9 +116,11 @@ public sealed class SnippetCompiler
     }
 
     /// <summary>Compiles <paramref name="code"/> and returns its errors (empty when it compiles).</summary>
-    public IReadOnlyList<Diagnostic> Compile(string code)
+    public IReadOnlyList<Diagnostic> Compile(string code) => Compile(code, path: "");
+
+    private List<Diagnostic> Compile(string code, string path)
     {
-        var tree = CSharpSyntaxTree.ParseText(Program(code), new CSharpParseOptions(LanguageVersion.Latest));
+        var tree = CSharpSyntaxTree.ParseText(Program(code), new CSharpParseOptions(LanguageVersion.Latest), path: path);
         var isLibrary = !tree.GetCompilationUnitRoot().Members.OfType<GlobalStatementSyntax>().Any();
         var compilation = CSharpCompilation.Create(
             "DocSnippet",
@@ -156,6 +158,11 @@ public sealed class SnippetCompiler
     /// and its statements as the body of a method of their own — a local one example declares is not visible in the next,
     /// since the text cannot rely on it either — preceded by the value <see cref="StandIns"/> it uses. A type stand-in is
     /// added once for the document, when an example uses the name and no example declares a type of that name.
+    /// <para>
+    /// An example that declares a type the library already offers under the same name — a listing of an interface or an
+    /// options class, as guides show them — is compiled on its own, as <see cref="Compile(string)"/> would: shared with
+    /// the document, its declaration would hide the library's type from every other example.
+    /// </para>
     /// </remarks>
     /// <param name="snippets">The examples of one document, in order. Their <see cref="DocSnippet.Key"/>s must differ.</param>
     public DocumentCompilation CompileDocument(IReadOnlyList<DocSnippet> snippets)
@@ -169,15 +176,18 @@ public sealed class SnippetCompiler
 
         var typeKeys = StandIns.Where(s => IsTypeDeclaration(s.Value)).Select(s => s.Key).ToHashSet(StringComparer.Ordinal);
         var valueKeys = StandIns.Keys.Where(k => !typeKeys.Contains(k)).ToList();
-        var declaredTypes = snippets
+        var library = CSharpCompilation.Create("References", references: _references);
+        var standalone = snippets.Where(s => RestatesALibraryType(Parse(s.Code), library)).ToHashSet();
+        var shared = snippets.Where(s => !standalone.Contains(s)).ToList();
+        var declaredTypes = shared
             .SelectMany(s => Parse(s.Code).DescendantNodes().OfType<BaseTypeDeclarationSyntax>().Select(t => t.Identifier.Text))
             .ToHashSet(StringComparer.Ordinal);
 
         var sources = new Dictionary<string, string>(StringComparer.Ordinal);
         var named = new StringBuilder();
-        for (var i = 0; i < snippets.Count; i++)
+        for (var i = 0; i < shared.Count; i++)
         {
-            var root = Parse(snippets[i].Code);
+            var root = Parse(shared[i].Code);
             var body = string.Concat(root.Members.OfType<GlobalStatementSyntax>().Select(s => s.ToFullString()));
             var declarations = string.Concat(root.Members.Where(m => m is not GlobalStatementSyntax).Select(m => m.ToFullString()));
             var standIns = UndeclaredNames(body, valueKeys).Select(name => StandIns[name]).ToList();
@@ -203,7 +213,7 @@ public sealed class SnippetCompiler
                     .AppendLine("}");
             }
 
-            sources[snippets[i].Key] = source.ToString();
+            sources[shared[i].Key] = source.ToString();
         }
 
         // Type stand-ins the examples (or the stand-ins they pulled in) name and the document does not declare itself.
@@ -231,6 +241,12 @@ public sealed class SnippetCompiler
                 OutputKind.DynamicallyLinkedLibrary,
                 nullableContextOptions: Nullable ? NullableContextOptions.Enable : NullableContextOptions.Disable));
         var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        foreach (var snippet in standalone)
+        {
+            sources[snippet.Key] = Program(snippet.Code);
+            errors.AddRange(Compile(snippet.Code, snippet.Key));
+        }
+
         return new DocumentCompilation(sources, errors);
     }
 
@@ -253,6 +269,30 @@ public sealed class SnippetCompiler
             typeStandIns.AddRange(added);
             named += string.Concat(added);
         }
+    }
+
+    /// <summary>
+    /// Whether the example declares a type that a namespace it can see (<see cref="Usings"/>, its own usings, or the
+    /// namespace it declares into) already offers from the references, with the same name and arity.
+    /// </summary>
+    private bool RestatesALibraryType(CompilationUnitSyntax root, CSharpCompilation library)
+    {
+        var namespaces = Usings
+            .Concat(root.Usings.Where(u => u.Alias is null && u.StaticKeyword.IsKind(SyntaxKind.None)).Select(u => u.NamespaceOrType.ToString()))
+            .Concat(root.DescendantNodes().OfType<BaseNamespaceDeclarationSyntax>().Select(n => n.Name.ToString()))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        foreach (var type in root.DescendantNodes().OfType<BaseTypeDeclarationSyntax>().Where(t => t.Parent is CompilationUnitSyntax or BaseNamespaceDeclarationSyntax))
+        {
+            var arity = type is TypeDeclarationSyntax { TypeParameterList: { } parameters } ? parameters.Parameters.Count : 0;
+            var metadataName = arity == 0 ? type.Identifier.Text : $"{type.Identifier.Text}`{arity}";
+            if (namespaces.Any(ns => library.GetTypeByMetadataName($"{ns}.{metadataName}") is not null))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void AppendUsings(StringBuilder source, CompilationUnitSyntax root)
