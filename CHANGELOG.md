@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [Unreleased]
+## [0.10.1] - 2026-10-13
 
 ### Fixed
 - **A type stand-in named only by another stand-in is declared.** When an example uses `llm` and the value stand-in is
