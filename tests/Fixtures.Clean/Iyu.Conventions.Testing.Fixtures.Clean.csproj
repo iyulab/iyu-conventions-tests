@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <!-- Only the fixtures use [LoggerMessage]; the package itself reads the attribute by name. -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
   </ItemGroup>
 
 </Project>

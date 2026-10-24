@@ -9,9 +9,9 @@
 
   <ItemGroup>
     <!-- Only the fixtures use [LoggerMessage]; the package itself reads the attribute by name. -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
     <!-- Only the fixtures implement IValidateOptions<T>; the package recognises it by name. -->
-    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.13" />
   </ItemGroup>
 
 </Project>
